@@ -131,7 +131,7 @@ assign AUDIO_MIX = status[20:19];
 assign LED_USER  = cart_download | (status[23] & bk_pending);
 assign LED_DISK  = 0;
 assign LED_POWER = 0;
-assign BUTTONS   = osd_btn;
+assign BUTTONS   = osd_btn | llapi_osd;
 
 assign VIDEO_ARX = status[31:30] == 2 ? 8'd16 : (status[30] ? 8'd8 : 8'd64);
 assign VIDEO_ARY = status[31:30] == 2 ? 8'd9  : (status[30] ? 8'd7 : 8'd49);
@@ -215,10 +215,11 @@ wire reset = RESET | buttons[1] | status[0] | cart_download | bk_loading | clear
 ////////////////////////////  HPS I/O  //////////////////////////////////
 
 // Status Bit Map:
-// 0         1         2         3
-// 01234567890123456789012345678901
-// 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+//             Upper                             Lower
+// 0         1         2         3          4         5         6
+// 01234567890123456789012345678901 23456789012345678901234567890123
+// 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
+// XXXXXXXX XXXXXXXXXXXXXXXXXXXXXXX XX
 
 `include "build_id.v"
 parameter CONF_STR = {
@@ -243,7 +244,7 @@ parameter CONF_STR = {
     "O56,Mouse,None,Port1,Port2;",
     "O7,Swap Joysticks,No,Yes;",
     "OH,Multitap,Disabled,Port2;",
-    "O8,Serial,OFF,SNAC;",
+    "o01,Serial,OFF,SNAC,LLAPI;",
     "-;",
     "OPQ,Super Scope,Disabled,Joy1,Joy2,Mouse;",
     "D4OR,Super Scope Btn,Joy,Mouse;",
@@ -260,7 +261,7 @@ parameter CONF_STR = {
 };
 
 wire  [1:0] buttons;
-wire [31:0] status;
+wire [63:0] status;
 wire [15:0] status_menumask = {!GUN_MODE, ~turbo_allow, ~gg_available, ~GSU_ACTIVE, ~bk_ena};
 wire        forced_scandoubler;
 reg  [31:0] sd_lba;
@@ -283,6 +284,8 @@ wire  [7:0] ioctl_index;
 wire [11:0] joy0,joy1,joy2,joy3,joy4;
 wire [24:0] ps2_mouse;
 
+wire [11:0] joy0_hps, joy1_hps, joy2_hps, joy3_hps, joy4_hps;
+
 wire  [7:0] joy0_x,joy0_y,joy1_x,joy1_y;
 
 wire [64:0] RTC;
@@ -301,16 +304,16 @@ hps_io #(.STRLEN($size(CONF_STR)>>3), .WIDE(1)) hps_io
 
 	.joystick_analog_0({joy0_y, joy0_x}),
 	.joystick_analog_1({joy1_y, joy1_x}),
-	.joystick_0(joy0),
-	.joystick_1(joy1),
-	.joystick_2(joy2),
-	.joystick_3(joy3),
-	.joystick_4(joy4),
+	.joystick_0(joy0_hps),
+	.joystick_1(joy1_hps),
+	.joystick_2(joy2_hps),
+	.joystick_3(joy3_hps),
+	.joystick_4(joy4_hps),
 	.ps2_mouse(ps2_mouse),
 
 	.status(status),
 	.status_menumask(status_menumask),
-	.status_in({status[31:5],1'b0,status[3:0]}),
+	.status_in({status[63:5],1'b0,status[3:0]}),
 	.status_set(cart_download),
 
 	.ioctl_addr(ioctl_addr),
@@ -836,7 +839,8 @@ lightgun lightgun
 	.PORT_DO(LG_DO)
 );
 
-// Indexes:
+
+// SNAC Indexes:
 // 0 = D+    = Latch
 // 1 = D-    = CLK
 // 2 = TX-   = P5
@@ -844,12 +848,16 @@ lightgun lightgun
 // 4 = RX+   = P6
 // 5 = RX-   = P4
 
-wire raw_serial = status[8];
+wire raw_serial = status[32];
 
-assign USER_OUT[2] = 1'b1;
-assign USER_OUT[3] = 1'b1;
-assign USER_OUT[5] = 1'b1;
-assign USER_OUT[6] = 1'b1;
+// LLAPI Indexes:
+// 0 = D+    = P1 Latch
+// 1 = D-    = P1 Data
+// 2 = TX-   = LLAPI Enable
+// 3 = GND_d = N/C
+// 4 = RX+   = P2 Latch
+// 5 = RX-   = P2 Data
+
 
 // JOYX_DO[0] is P4, JOYX_DO[1] is P5
 wire [1:0] JOY1_DI;
@@ -857,6 +865,8 @@ wire [1:0] JOY2_DI;
 wire JOY2_P6_DI;
 
 always_comb begin
+	USER_OUT= 6'b111111;
+
 	if (raw_serial) begin
 		USER_OUT[0] = JOY_STRB;
 		USER_OUT[1] = joy_swap ? ~JOY2_CLK : ~JOY1_CLK;
@@ -865,15 +875,144 @@ always_comb begin
 		JOY2_DI = joy_swap ? {USER_IN[2], USER_IN[5]} : JOY2_DO;
 		JOY2_P6_DI = joy_swap ? USER_IN[4] : (LG_P6_out | !GUN_MODE);
 	end else begin
-		USER_OUT[0] = 1'b1;
-		USER_OUT[1] = 1'b1;
-		USER_OUT[4] = 1'b1;
+		USER_OUT[0] = llapi_latch_o;
+		USER_OUT[1] = llapi_data_o;
+		USER_OUT[2] = ~(llapi_select & ~OSD_STATUS);
+		USER_OUT[4] = llapi_latch_o2;
+		USER_OUT[5] = llapi_data_o2;
 		JOY1_DI = JOY1_DO;
 		JOY2_DI = JOY2_DO;
 		JOY2_P6_DI = (LG_P6_out | !GUN_MODE);
 	end
 end
 
+// LLAPI
+wire [31:0] llapi_buttons, llapi_buttons2;
+wire [71:0] llapi_analog, llapi_analog2;
+wire [7:0]  llapi_type, llapi_type2;
+wire llapi_en, llapi_en2;
+
+wire llapi_select = status[33];
+
+wire llapi_latch_o, llapi_latch_o2, llapi_data_o, llapi_data_o2;
+
+LLAPI llapi
+(
+	.CLK_50M(CLK_50M),
+	.LLAPI_SYNC(JOY_STRB),
+	.IO_LATCH_IN(USER_IN[0]),
+	.IO_LATCH_OUT(llapi_latch_o),
+	.IO_DATA_IN(USER_IN[1]),
+	.IO_DATA_OUT(llapi_data_o),
+	.ENABLE(llapi_select & ~OSD_STATUS),
+	.LLAPI_BUTTONS(llapi_buttons),
+	.LLAPI_ANALOG(llapi_analog),
+	.LLAPI_TYPE(llapi_type),
+	.LLAPI_EN(llapi_en)
+);
+
+LLAPI llapi2
+(
+	.CLK_50M(CLK_50M),
+	.LLAPI_SYNC(JOY_STRB),
+	.IO_LATCH_IN(USER_IN[4]),
+	.IO_LATCH_OUT(llapi_latch_o2),
+	.IO_DATA_IN(USER_IN[5]),
+	.IO_DATA_OUT(llapi_data_o2),
+	.ENABLE(llapi_select & ~OSD_STATUS),
+	.LLAPI_BUTTONS(llapi_buttons2),
+	.LLAPI_ANALOG(llapi_analog2),
+	.LLAPI_TYPE(llapi_type2),
+	.LLAPI_EN(llapi_en2)
+);
+
+reg llapi_button_pressed, llapi_button_pressed2;
+
+always @(posedge CLK_50M) begin
+	if (reset) begin
+		llapi_button_pressed  <= 0;
+		llapi_button_pressed2 <= 0;
+	end else begin
+		if (|llapi_buttons)
+			llapi_button_pressed  <= 1;
+		if (|llapi_buttons2)
+			llapi_button_pressed2 <= 1;
+	end
+end
+
+// controller id is 0 if there is either an Atari controller or no controller
+// if id is 0, assume there is no controller until a button is pressed
+wire use_llapi = llapi_en && llapi_select && (|llapi_type || llapi_button_pressed);
+wire use_llapi2 = llapi_en2 && llapi_select && (|llapi_type2 || llapi_button_pressed2);
+
+wire [11:0] joy_ll_a;
+always_comb begin
+	// map for saturn controller
+	// use L and R instead of top face buttons
+	// no select button so use Z
+	if (llapi_type == 3 || llapi_type == 8) begin
+		joy_ll_a = {
+			llapi_buttons[5], llapi_buttons[6], // Start Select
+			llapi_buttons[9] | llapi_buttons[7], llapi_buttons[8], // RT LT
+			llapi_buttons[2], llapi_buttons[3], llapi_buttons[0], llapi_buttons[1], // Y X B A
+			llapi_buttons[27], llapi_buttons[26], llapi_buttons[25], llapi_buttons[24] // d-pad
+		};
+	end else begin
+		joy_ll_a = {
+			llapi_buttons[5], llapi_buttons[4], // Start Select
+			llapi_buttons[7], llapi_buttons[6], // RT LT
+			llapi_buttons[2], llapi_buttons[3], llapi_buttons[0], llapi_buttons[1], // Y X B A
+			llapi_buttons[27], llapi_buttons[26], llapi_buttons[25], llapi_buttons[24] // d-pad
+		};
+	end
+end
+
+wire [11:0] joy_ll_b;
+always_comb begin
+	// map for saturn controller
+	// use L and R instead of top face buttons
+	// no select button so use Z
+	if (llapi_type2 == 3 || llapi_type2 == 8) begin
+		joy_ll_b = {
+			llapi_buttons2[5],  llapi_buttons2[6], // Start Select
+			llapi_buttons2[9] | llapi_buttons2[7],  llapi_buttons2[8], // RT LT
+			llapi_buttons2[2],  llapi_buttons2[3],  llapi_buttons2[0],  llapi_buttons2[1], // Y X B A
+			llapi_buttons2[27], llapi_buttons2[26], llapi_buttons2[25], llapi_buttons2[24] // d-pad
+		};
+	end else begin
+		joy_ll_b = {
+			llapi_buttons2[5],  llapi_buttons2[4], // Start Select
+			llapi_buttons2[7],  llapi_buttons2[6], // RT LT
+			llapi_buttons2[2],  llapi_buttons2[3],  llapi_buttons2[0],  llapi_buttons2[1], // Y X B A
+			llapi_buttons2[27], llapi_buttons2[26], llapi_buttons2[25], llapi_buttons2[24] // d-pad
+		};
+	end
+end
+
+wire llapi_osd = (llapi_buttons[26] && llapi_buttons[5] && llapi_buttons[0]) || (llapi_buttons2[26] && llapi_buttons2[5] && llapi_buttons2[0]);
+
+// if LLAPI is enabled, shift USB controllers to next available player slot
+always_comb begin
+	if (use_llapi && use_llapi2) begin
+		joy0 = joy_ll_a;
+		joy1 = joy_ll_b;
+		joy2 = joy0_hps;
+		joy3 = joy1_hps;
+		joy4 = joy2_hps;
+	end else if (use_llapi || use_llapi2) begin
+		joy0 = use_llapi  ? joy_ll_a : joy0_hps;
+		joy1 = use_llapi2 ? joy_ll_b : joy0_hps;
+		joy2 = joy1_hps;
+		joy3 = joy2_hps;
+		joy4 = joy3_hps;
+	end else begin
+		joy0 = joy0_hps;
+		joy1 = joy1_hps;
+		joy2 = joy2_hps;
+		joy3 = joy3_hps;
+		joy4 = joy4_hps;
+	end
+end
 
 /////////////////////////  STATE SAVE/LOAD  /////////////////////////////
 
