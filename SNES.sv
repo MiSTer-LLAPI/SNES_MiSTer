@@ -119,7 +119,6 @@ module emu
 	input   [6:0] USER_IN,
 	output  [6:0] USER_OUT,
 
-	output        OSD_TRIGGER,
 	input         OSD_STATUS
 );
 
@@ -132,7 +131,7 @@ assign AUDIO_MIX = status[20:19];
 assign LED_USER  = cart_download | (status[23] & bk_pending);
 assign LED_DISK  = 0;
 assign LED_POWER = 0;
-assign BUTTONS   = 0;
+assign BUTTONS[1] = 0;
 
 assign VIDEO_ARX = status[31:30] == 2 ? 8'd16 : (status[30] ? 8'd8 : 8'd64);
 assign VIDEO_ARY = status[31:30] == 2 ? 8'd9  : (status[30] ? 8'd7 : 8'd49);
@@ -873,7 +872,7 @@ wire [11:0] joy_ll_b = use_llapi_gun2 ? 12'd0 : {
 	llapi_buttons[27], llapi_buttons[26], llapi_buttons[25], llapi_buttons[24]
 };
 
-assign OSD_TRIGGER = llapi_buttons[27] & llapi_buttons[5];
+assign BUTTONS[0] = llapi_buttons[27] & llapi_buttons[5];
 
 assign joy0 = use_llapi ? joy_ll_a : joy0_hps;
 assign joy1 = use_llapi2 ? joy_ll_b : joy1_hps;
