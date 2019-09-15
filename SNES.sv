@@ -867,9 +867,9 @@ wire [11:0] joy_ll_a = use_llapi_gun ? 12'd0 : {
 };
 
 wire [11:0] joy_ll_b = use_llapi_gun2 ? 12'd0 : {
-	llapi_buttons[5], llapi_buttons[4], llapi_buttons[7], llapi_buttons[6],
-	llapi_buttons[2], llapi_buttons[3], llapi_buttons[0], llapi_buttons[1],
-	llapi_buttons[27], llapi_buttons[26], llapi_buttons[25], llapi_buttons[24]
+	llapi_buttons2[5], llapi_buttons2[4], llapi_buttons2[7], llapi_buttons2[6],
+	llapi_buttons2[2], llapi_buttons2[3], llapi_buttons2[0], llapi_buttons2[1],
+	llapi_buttons2[27], llapi_buttons2[26], llapi_buttons2[25], llapi_buttons2[24]
 };
 
 assign BUTTONS[0] = llapi_buttons[27] & llapi_buttons[5];
