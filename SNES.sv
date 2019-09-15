@@ -870,7 +870,7 @@ wire [11:0] joy_ll_b = {
 	llapi_buttons2[27], llapi_buttons2[26], llapi_buttons2[25], llapi_buttons2[24]
 };
 
-assign BUTTONS[0] = llapi_buttons[27] & llapi_buttons[5];
+assign BUTTONS[0] = (llapi_buttons[4] & llapi_buttons[5]) || (llapi_buttons2[4] & llapi_buttons2[5]);
 
 assign joy0 = use_llapi ? joy_ll_a : joy0_hps;
 assign joy1 = use_llapi2 ? joy_ll_b : joy1_hps;
