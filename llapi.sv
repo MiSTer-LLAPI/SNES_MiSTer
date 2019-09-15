@@ -1,4 +1,4 @@
-/* HDL implementation of Low-Latency API protocol for Bliss-Box
+/* HDL implementation of Low-Latency API protocol
 * 
 * Copyright 2019 Jamie Dickson aka Kitrinx
 * 
@@ -41,6 +41,7 @@
 
 // Bytes 1-2:
 // Buttons
+// XXX: These are not accurate in 3.0, see the linked document instead
 // System SNES    Genesis PSX    Gun   Saturn
 //  0:     Y       A       □      Click A
 //  1:     B       B       ×      Light B
@@ -91,7 +92,7 @@
 // 6: autopause dis.
 // 7: d-pad only mode
 
-module LLIO
+module LLAPI
 (
 	input         CLK_50M,
 	input         ENABLE,        // If 0, module will be disabled and pins will be set to Z
@@ -99,47 +100,48 @@ module LLIO
 	output        IO_LATCH_OUT,
 	input         IO_DATA_IN,    // D- top level IO pin
 	output        IO_DATA_OUT,
-	input         LLIO_SYNC,     // Pos edge corresponds with when the core needs the data, from core
-	output        LLIO_EN,       // High when device is communicating, passed to core
-	output [7:0]  LLIO_TYPE,     // Enumerated controller type, passed to core
-	output [7:0]  LLIO_MODES,    // Modes that the bliss box may be in, passed to core
-	output [31:0] LLIO_BUTTONS,  // Vector of buttons, 1 == pressed, passed to core
-	output [71:0] LLIO_ANALOG    // Unsigned 8 bit vector of analog axis, passed to core
+	input         LLAPI_SYNC,     // Pos edge corresponds with when the core needs the data, from core
+	output        LLAPI_EN,       // High when device is communicating, passed to core
+	output [7:0]  LLAPI_TYPE,     // Enumerated controller type, passed to core
+	output [7:0]  LLAPI_MODES,    // Modes that the bliss box may be in, passed to core
+	output [31:0] LLAPI_BUTTONS,  // Vector of buttons, 1 == pressed, passed to core
+	output [71:0] LLAPI_ANALOG    // Unsigned 8 bit vector of analog axis, passed to core
 );
 
 // Commands
 enum bit [7:0] {
-	LLIO_POLL               = 8'h00, // Holds latch low until done
-	LLIO_STATUS             = 8'h01, // Returns 13 bytes, see above
-	LLIO_PRESSURE_STATUS    = 8'h02, // Returns ?? bytes
-	LLIO_SET_MODES          = 8'h20, // Requires 1 byte payload
-	LLIO_GET_MODES          = 8'h21, // Returns bit field of active modes, 1 byte. see above
+	LLAPI_POLL               = 8'h00, // Holds latch low until done
+	LLAPI_STATUS             = 8'h01, // Returns 13 bytes, see above
+	LLAPI_PRESSURE_STATUS    = 8'h02, // Returns ?? bytes
+	LLAPI_SET_MODES          = 8'h20, // Requires 1 byte payload
+	LLAPI_GET_MODES          = 8'h21, // Returns bit field of active modes, 1 byte. see above
 	// Rumble
-	LLIO_RUMBLE_CONST_START_FROM_PARMS = 8'h11, //must set parms first
-	LLIO_RUBMLE_CONST_END              = 8'h12,
-	LLIO_RUMBLE_SINE_START_FROM_PARMS  = 8'h14, //must set parms first
-	LLIO_RUMBLE_SINE_END               = 8'h18,
-	LLIO_RUMBLE_CONST_JOLT             = 8'h1A,
-	LLIO_RUMBLE_SINE_JOLT              = 8'h1B,
-	LLIO_RUMBLE_PARMS                  = 8'h1C //followed by 2 bytes of data containing the parms (rumbleLevel and then rumbleLoop)
+	LLAPI_RUMBLE_CONST_START_FROM_PARMS = 8'h11, //must set parms first
+	LLAPI_RUBMLE_CONST_END              = 8'h12,
+	LLAPI_RUMBLE_SINE_START_FROM_PARMS  = 8'h14, //must set parms first
+	LLAPI_RUMBLE_SINE_END               = 8'h18,
+	LLAPI_RUMBLE_CONST_JOLT             = 8'h1A,
+	LLAPI_RUMBLE_SINE_JOLT              = 8'h1B,
+	LLAPI_RUMBLE_PARMS                  = 8'h1C //followed by 2 bytes of data containing the parms (rumbleLevel and then rumbleLoop)
 } commands;
 
 // Errors
 enum bit [7:0] {
-	LLIO_ERROR_NODATA       = 8'h00,
-	LLIO_ERROR_AP_NO_REPORT = 8'hFF
+	LLAPI_ERROR_NODATA       = 8'h00,
+	LLAPI_ERROR_AP_NO_REPORT = 8'hFF
 } errors;
 
 // Timing (one 50mhz cycle == 0.02us)
 enum bit [20:0] {
-	TIME_POLL   = 21'd820000, // 16.4ms - default polling period if no sync is used
+	TIME_POLL   = 21'd350000, // 7ms - default polling period if no sync is used
 	TIME_SETTLE = 21'd150,    // 3us - to account for bidirectional IO pins slew rate
 	TIME_WAIT   = 21'd500,    // 10us - time to wait after a reply before writing again
 	TIME_LEADIN = 21'd84,     // 1.5us - at start of new transactions
 	TIME_BIT_H  = 21'd109,    // 2.2us - always-high first bit-half
 	TIME_BIT_R  = 21'd115,    // 2.3us - variable second bit-half
 	TIME_SYNC_H = 21'd49,     // 1us - sync pulse between bytes high time
-	TIME_SYNC_L = 21'd50      // 1us - sync pulse between bytes low time
+	TIME_SYNC_L = 21'd50,     // 1us - sync pulse between bytes low time
+	TIME_BUFFER = 21'd9500    // 3 scanlines of wiggle room
 } time_periods;
 
 typedef enum bit [2:0] {
@@ -163,7 +165,7 @@ typedef enum bit [3:0] {
 	STATE_READ_END
 } execution_state;
 
-logic [20:0]  cycle, count, poll_offset, poll_counter, sync_counter;
+logic [20:0]  cycle, count, poll_offset, poll_counter, poll_offset_latch, sync_counter;
 logic [31:0]  write_buffer;
 logic [3:0]   write_length;
 logic [2:0]   read_bit; // Relies on overflow
@@ -187,11 +189,11 @@ logic old_sync, new_sync, old_data;
 execution_stage stage = READ_IDLE;
 execution_state state = STATE_IDLE;
 
-assign LLIO_TYPE = lljs_type;
-assign LLIO_BUTTONS = lljs_buttons;
-assign LLIO_ANALOG = lljs_analog;
-assign LLIO_MODES = lljs_modes;
-assign LLIO_EN = enable;
+assign LLAPI_TYPE = lljs_type;
+assign LLAPI_BUTTONS = lljs_buttons;
+assign LLAPI_ANALOG = lljs_analog;
+assign LLAPI_MODES = lljs_modes;
+assign LLAPI_EN = enable;
 
 always_comb begin
 	if (latch) begin
@@ -206,7 +208,7 @@ end
 always_ff @(posedge CLK_50M) begin
 	if (ENABLE) begin
 	old_sync <= new_sync;
-	new_sync <= LLIO_SYNC;
+	new_sync <= LLAPI_SYNC;
 	cycle <= cycle + 1'b1;
 
 	if (~latch) begin
@@ -215,7 +217,7 @@ always_ff @(posedge CLK_50M) begin
 		data_in <= IO_DATA_IN;
 	end
 
-	if (~old_sync && new_sync) begin
+	if (~old_sync && new_sync && sync_counter > poll_offset_latch) begin
 		sync_counter <= 0;
 		poll_time <= poll_counter - 21'd9500; // about 3 scanlines of wobble room
 		poll_counter <= 0;
@@ -241,7 +243,7 @@ always_ff @(posedge CLK_50M) begin
 					state <= STATE_WRITE_START;
 					stage <= READ_STATUS;
 					read_length <= 'd13;
-					write_buffer <= {24'd0, LLIO_STATUS};
+					write_buffer <= {24'd0, LLAPI_STATUS};
 				end
 			end else if (stage == WRITE_MODES) begin
 				if (cycle > TIME_WAIT) begin
@@ -249,16 +251,17 @@ always_ff @(posedge CLK_50M) begin
 					stage <= READ_MODES;
 					read_length <= 1'd1;
 					state <= STATE_WRITE_START;
-					write_buffer <= {24'd0, LLIO_GET_MODES};
+					write_buffer <= {24'd0, LLAPI_GET_MODES};
 				end
-			end else if (sync_counter >= (((poll_offset < (poll_time >> 1)) && enable) ?
+			end else if (sync_counter >= (((poll_offset < (poll_time - TIME_BUFFER)) && enable) ?
 				(poll_time - poll_offset) : poll_time)) begin // Trigger timed device poll. Offset can not be > half the poll time.
 				count <= count + 1'b1;
 				if (count > TIME_WAIT) begin
 					if (stage != READ_IDLE) begin // IO timeout, device disconnect/defunct
 						enable <= 1'b0;
 						poll_offset <= 0;
-						poll_time <= TIME_POLL;
+						poll_time <= poll_offset_latch > TIME_BUFFER ? poll_offset_latch : TIME_POLL;
+						poll_offset_latch <= 21'd350000;
 						lljs_buttons <= 24'h0;
 						lljs_type <= 8'h0;
 						lljs_analog <= 48'h808080808080;
@@ -270,7 +273,7 @@ always_ff @(posedge CLK_50M) begin
 					read_length <= 0;
 					state <= STATE_WRITE_START;
 					stage <= READ_POLL;
-					write_buffer <= {24'd0, LLIO_POLL};
+					write_buffer <= {24'd0, LLAPI_POLL};
 				end
 			end
 		end
@@ -381,6 +384,7 @@ always_ff @(posedge CLK_50M) begin
 							read_buffer[4]
 						};
 					end
+					poll_offset_latch <= poll_offset + TIME_BUFFER;
 					read_byte <= read_byte + 1'd1;
 					state <= STATE_READ_WAIT;
 				end

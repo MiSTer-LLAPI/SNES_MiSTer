@@ -278,7 +278,7 @@ wire  [7:0] ioctl_index;
 wire [11:0] joy0,joy1,joy2,joy3,joy4;
 wire [24:0] ps2_mouse;
 
-wire [11:0] joy0_hps;
+wire [11:0] joy0_hps, joy1_hps;
 
 wire  [7:0] joy0_x,joy0_y,joy1_x,joy1_y;
 
@@ -295,7 +295,7 @@ hps_io #(.STRLEN($size(CONF_STR)>>3), .WIDE(1)) hps_io
 	.joystick_analog_0({joy0_y, joy0_x}),
 	.joystick_analog_1({joy1_y, joy1_x}),
 	.joystick_0(joy0_hps),
-	.joystick_1(joy1),
+	.joystick_1(joy1_hps),
 	.joystick_2(joy2),
 	.joystick_3(joy3),
 	.joystick_4(joy4),
@@ -789,17 +789,14 @@ lightgun lightgun
 
 wire raw_serial = status[21];
 
-assign USER_OUT[2] = ~(status[22] & ~OSD_STATUS);
-assign USER_OUT[3] = 1'b1;
-assign USER_OUT[5] = 1'b1;
-assign USER_OUT[6] = 1'b1;
-
 // JOYX_DO[0] is P4, JOYX_DO[1] is P5
 wire [1:0] JOY1_DI;
 wire [1:0] JOY2_DI;
 wire JOY2_P6_DI;
 
 always_comb begin
+	USER_OUT= 6'b111111;
+
 	if (raw_serial) begin
 		USER_OUT[0] = JOY_STRB;
 		USER_OUT[1] = joy_swap ? ~JOY2_CLK : ~JOY1_CLK;
@@ -808,9 +805,11 @@ always_comb begin
 		JOY2_DI = joy_swap ? {USER_IN[2], USER_IN[5]} : JOY2_DO;
 		JOY2_P6_DI = joy_swap ? USER_IN[4] : (LG_P6_out | !GUN_MODE);
 	end else begin
-		USER_OUT[0] = llio_user_out[0];
-		USER_OUT[1] = llio_user_out[1];
-		USER_OUT[4] = 1'b1;
+		USER_OUT[0] = llapi_latch_o;
+		USER_OUT[1] = llapi_data_o;
+		USER_OUT[2] = ~(status[22] & ~OSD_STATUS);
+		USER_OUT[4] = llapi_latch_o2;
+		USER_OUT[5] = llapi_data_o2;
 		JOY1_DI = JOY1_DO;
 		JOY2_DI = JOY2_DO;
 		JOY2_P6_DI = (LG_P6_out | !GUN_MODE);
@@ -818,40 +817,66 @@ always_comb begin
 end
 
 // LLAPI
-wire [31:0] llio_buttons;
-wire [71:0] llio_analog;
-wire [7:0]  llio_type;
-wire llio_en;
+wire [31:0] llapi_buttons, llapi_buttons2;
+wire [71:0] llapi_analog, llapi_analog2;
+wire [7:0]  llapi_type, llapi_type2;
+wire llapi_en, llapi_en2;
 
-wire [1:0] llio_user_out;
+wire llapi_select = status[22];
 
-LLIO llio
+wire llapi_latch_o, llapi_latch_o2, llapi_data_o, llapi_data_o2;
+
+LLAPI llapi
 (
 	.CLK_50M(CLK_50M),
-	.LLIO_SYNC(~VBlank_n),
+	.LLAPI_SYNC(JOY_STRB),
 	.IO_LATCH_IN(USER_IN[0]),
-	.IO_LATCH_OUT(llio_user_out[0]),
+	.IO_LATCH_OUT(llapi_latch_o),
 	.IO_DATA_IN(USER_IN[1]),
-	.IO_DATA_OUT(llio_user_out[1]),
-	.ENABLE(status[22] & ~OSD_STATUS),
-	.LLIO_BUTTONS(llio_buttons),
-	.LLIO_ANALOG(llio_analog),
-	.LLIO_TYPE(llio_type),
-	.LLIO_EN(llio_en)
+	.IO_DATA_OUT(llapi_data_o),
+	.ENABLE(llapi_select & ~OSD_STATUS),
+	.LLAPI_BUTTONS(llapi_buttons),
+	.LLAPI_ANALOG(llapi_analog),
+	.LLAPI_TYPE(llapi_type),
+	.LLAPI_EN(llapi_en)
 );
 
-wire use_llio = llio_en && status[22];
-wire use_llio_gun = use_llio && llio_type == 8'd28;
+LLAPI llapi2
+(
+	.CLK_50M(CLK_50M),
+	.LLAPI_SYNC(JOY_STRB),
+	.IO_LATCH_IN(USER_IN[0]),
+	.IO_LATCH_OUT(llapi_latch_o2),
+	.IO_DATA_IN(USER_IN[1]),
+	.IO_DATA_OUT(llapi_data_o2),
+	.ENABLE(llapi_select & ~OSD_STATUS),
+	.LLAPI_BUTTONS(llapi_buttons2),
+	.LLAPI_ANALOG(llapi_analog2),
+	.LLAPI_TYPE(llapi_type2),
+	.LLAPI_EN(llapi_en2)
+);
 
-wire [11:0] joy_ll_a = use_llio_gun ? 12'd0 : {
-	llio_buttons[5], llio_buttons[4], llio_buttons[7], llio_buttons[6],
-	llio_buttons[2], llio_buttons[3], llio_buttons[0], llio_buttons[1],
-	llio_buttons[27], llio_buttons[26], llio_buttons[25], llio_buttons[24]
+wire use_llapi = llapi_en && llapi_select;
+wire use_llapi2 = llapi_en2 && llapi_select;
+wire use_llapi_gun = use_llapi && llapi_type == 8'd28;
+wire use_llapi_gun2 = use_llapi && llapi_type2 == 8'd28;
+
+wire [11:0] joy_ll_a = use_llapi_gun ? 12'd0 : {
+	llapi_buttons[5], llapi_buttons[4], llapi_buttons[7], llapi_buttons[6],
+	llapi_buttons[2], llapi_buttons[3], llapi_buttons[0], llapi_buttons[1],
+	llapi_buttons[27], llapi_buttons[26], llapi_buttons[25], llapi_buttons[24]
 };
 
-assign OSD_TRIGGER = llio_buttons[27] & llio_buttons[5];
+wire [11:0] joy_ll_b = use_llapi_gun2 ? 12'd0 : {
+	llapi_buttons[5], llapi_buttons[4], llapi_buttons[7], llapi_buttons[6],
+	llapi_buttons[2], llapi_buttons[3], llapi_buttons[0], llapi_buttons[1],
+	llapi_buttons[27], llapi_buttons[26], llapi_buttons[25], llapi_buttons[24]
+};
 
-assign joy0 = use_llio ? joy_ll_a : joy0_hps;
+assign OSD_TRIGGER = llapi_buttons[27] & llapi_buttons[5];
+
+assign joy0 = use_llapi ? joy_ll_a : joy0_hps;
+assign joy1 = use_llapi2 ? joy_ll_b : joy1_hps;
 
 /////////////////////////  STATE SAVE/LOAD  /////////////////////////////
 
