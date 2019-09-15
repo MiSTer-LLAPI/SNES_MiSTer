@@ -131,7 +131,7 @@ assign AUDIO_MIX = status[20:19];
 assign LED_USER  = cart_download | (status[23] & bk_pending);
 assign LED_DISK  = 0;
 assign LED_POWER = 0;
-assign BUTTONS[1] = 0;
+assign BUTTONS   = llapi_osd;
 
 assign VIDEO_ARX = status[31:30] == 2 ? 8'd16 : (status[30] ? 8'd8 : 8'd64);
 assign VIDEO_ARY = status[31:30] == 2 ? 8'd9  : (status[30] ? 8'd7 : 8'd49);
@@ -859,18 +859,20 @@ wire use_llapi = llapi_en && llapi_select;
 wire use_llapi2 = llapi_en2 && llapi_select;
 
 wire [11:0] joy_ll_a = {
-	llapi_buttons[5], llapi_buttons[4], llapi_buttons[7], llapi_buttons[6],
-	llapi_buttons[2], llapi_buttons[3], llapi_buttons[0], llapi_buttons[1],
-	llapi_buttons[27], llapi_buttons[26], llapi_buttons[25], llapi_buttons[24]
+	llapi_buttons[5], llapi_buttons[4], // Start Select
+	llapi_buttons[7], llapi_buttons[6], // RT LT
+	llapi_buttons[2], llapi_buttons[3], llapi_buttons[0], llapi_buttons[1], // Y X B A
+	llapi_buttons[27], llapi_buttons[26], llapi_buttons[25], llapi_buttons[24] // d-pad
 };
 
 wire [11:0] joy_ll_b = {
-	llapi_buttons2[5], llapi_buttons2[4], llapi_buttons2[7], llapi_buttons2[6],
-	llapi_buttons2[2], llapi_buttons2[3], llapi_buttons2[0], llapi_buttons2[1],
-	llapi_buttons2[27], llapi_buttons2[26], llapi_buttons2[25], llapi_buttons2[24]
+	llapi_buttons2[5], llapi_buttons2[4], // Start Select
+	llapi_buttons2[7], llapi_buttons2[6], // RT LT
+	llapi_buttons2[2], llapi_buttons2[3], llapi_buttons2[0], llapi_buttons2[1], // Y X B A
+	llapi_buttons2[27], llapi_buttons2[26], llapi_buttons2[25], llapi_buttons2[24] // d-pad
 };
 
-assign BUTTONS[0] = (llapi_buttons[4] & llapi_buttons[5]) || (llapi_buttons2[4] & llapi_buttons2[5]);
+assign llapi_osd = (llapi_buttons[4] & llapi_buttons[5]) || (llapi_buttons2[4] & llapi_buttons2[5]);
 
 assign joy0 = use_llapi ? joy_ll_a : joy0_hps;
 assign joy1 = use_llapi2 ? joy_ll_b : joy1_hps;
