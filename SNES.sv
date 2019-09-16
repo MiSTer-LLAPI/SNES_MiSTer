@@ -844,9 +844,9 @@ LLAPI llapi2
 (
 	.CLK_50M(CLK_50M),
 	.LLAPI_SYNC(JOY_STRB),
-	.IO_LATCH_IN(USER_IN[0]),
+	.IO_LATCH_IN(USER_IN[4]),
 	.IO_LATCH_OUT(llapi_latch_o2),
-	.IO_DATA_IN(USER_IN[1]),
+	.IO_DATA_IN(USER_IN[5]),
 	.IO_DATA_OUT(llapi_data_o2),
 	.ENABLE(llapi_select & ~OSD_STATUS),
 	.LLAPI_BUTTONS(llapi_buttons2),
