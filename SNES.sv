@@ -862,7 +862,7 @@ wire [11:0] joy_ll_a;
 always_comb begin
 	// map for saturn controller
 	// use L and R instead of top face buttons
-	if (use_llapi && (llapi_type == 3 || llapi_type == 8)) begin
+	if (llapi_type == 3 || llapi_type == 8) begin
 		joy_ll_a = {
 			llapi_buttons[5], llapi_buttons[4], // Start Select
 			llapi_buttons[9], llapi_buttons[8], // RT LT
@@ -883,7 +883,7 @@ wire [11:0] joy_ll_b;
 always_comb begin
 	// map for saturn controller
 	// use L and R instead of top face buttons
-	if (use_llapi2 && (llapi_type2 == 3 || llapi_type2 == 8)) begin
+	if (llapi_type2 == 3 || llapi_type2 == 8) begin
 		joy_ll_b = {
 			llapi_buttons2[5],  llapi_buttons2[4], // Start Select
 			llapi_buttons2[9],  llapi_buttons2[8], // RT LT
