@@ -858,19 +858,47 @@ LLAPI llapi2
 wire use_llapi = llapi_en && llapi_select;
 wire use_llapi2 = llapi_en2 && llapi_select;
 
-wire [11:0] joy_ll_a = {
-	llapi_buttons[5], llapi_buttons[4], // Start Select
-	llapi_buttons[7], llapi_buttons[6], // RT LT
-	llapi_buttons[2], llapi_buttons[3], llapi_buttons[0], llapi_buttons[1], // Y X B A
-	llapi_buttons[27], llapi_buttons[26], llapi_buttons[25], llapi_buttons[24] // d-pad
-};
+wire [11:0] joy_ll_a;
+always_comb begin
+	// map for saturn controller
+	// use L and R instead of top face buttons
+	if (use_llapi && (llapi_type == 3 || llapi_type == 8)) begin
+		joy_ll_a = {
+			llapi_buttons[5], llapi_buttons[4], // Start Select
+			llapi_buttons[9], llapi_buttons[8], // RT LT
+			llapi_buttons[2], llapi_buttons[3], llapi_buttons[0], llapi_buttons[1], // Y X B A
+			llapi_buttons[27], llapi_buttons[26], llapi_buttons[25], llapi_buttons[24] // d-pad
+		};
+	end else begin
+		joy_ll_a = {
+			llapi_buttons[5], llapi_buttons[4], // Start Select
+			llapi_buttons[7], llapi_buttons[6], // RT LT
+			llapi_buttons[2], llapi_buttons[3], llapi_buttons[0], llapi_buttons[1], // Y X B A
+			llapi_buttons[27], llapi_buttons[26], llapi_buttons[25], llapi_buttons[24] // d-pad
+		};
+	end
+end
 
-wire [11:0] joy_ll_b = {
-	llapi_buttons2[5], llapi_buttons2[4], // Start Select
-	llapi_buttons2[7], llapi_buttons2[6], // RT LT
-	llapi_buttons2[2], llapi_buttons2[3], llapi_buttons2[0], llapi_buttons2[1], // Y X B A
-	llapi_buttons2[27], llapi_buttons2[26], llapi_buttons2[25], llapi_buttons2[24] // d-pad
-};
+wire [11:0] joy_ll_b;
+always_comb begin
+	// map for saturn controller
+	// use L and R instead of top face buttons
+	if (use_llapi2 && (llapi_type2 == 3 || llapi_type2 == 8)) begin
+		joy_ll_b = {
+			llapi_buttons2[5],  llapi_buttons2[4], // Start Select
+			llapi_buttons2[9],  llapi_buttons2[8], // RT LT
+			llapi_buttons2[2],  llapi_buttons2[3],  llapi_buttons2[0],  llapi_buttons2[1], // Y X B A
+			llapi_buttons2[27], llapi_buttons2[26], llapi_buttons2[25], llapi_buttons2[24] // d-pad
+		};
+	end else begin
+		joy_ll_b = {
+			llapi_buttons2[5],  llapi_buttons2[4], // Start Select
+			llapi_buttons2[7],  llapi_buttons2[6], // RT LT
+			llapi_buttons2[2],  llapi_buttons2[3],  llapi_buttons2[0],  llapi_buttons2[1], // Y X B A
+			llapi_buttons2[27], llapi_buttons2[26], llapi_buttons2[25], llapi_buttons2[24] // d-pad
+		};
+	end
+end
 
 assign llapi_osd = (llapi_buttons[4] & llapi_buttons[5]) || (llapi_buttons2[4] & llapi_buttons2[5]);
 
