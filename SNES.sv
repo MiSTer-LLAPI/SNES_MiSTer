@@ -277,7 +277,7 @@ wire  [7:0] ioctl_index;
 wire [11:0] joy0,joy1,joy2,joy3,joy4;
 wire [24:0] ps2_mouse;
 
-wire [11:0] joy0_hps, joy1_hps;
+wire [11:0] joy0_hps, joy1_hps, joy2_hps, joy3_hps, joy4_hps;
 
 wire  [7:0] joy0_x,joy0_y,joy1_x,joy1_y;
 
@@ -297,9 +297,9 @@ hps_io #(.STRLEN($size(CONF_STR)>>3), .WIDE(1)) hps_io
 	.joystick_analog_1({joy1_y, joy1_x}),
 	.joystick_0(joy0_hps),
 	.joystick_1(joy1_hps),
-	.joystick_2(joy2),
-	.joystick_3(joy3),
-	.joystick_4(joy4),
+	.joystick_2(joy2_hps),
+	.joystick_3(joy3_hps),
+	.joystick_4(joy4_hps),
 	.ps2_mouse(ps2_mouse),
 
 	.status(status),
@@ -910,8 +910,28 @@ end
 
 wire llapi_osd = (llapi_buttons[26] & llapi_buttons[5] & llapi_buttons[0]) || (llapi_buttons2[26] & llapi_buttons2[5] & llapi_buttons2[0]);
 
-assign joy0 = use_llapi ? joy_ll_a : joy0_hps;
-assign joy1 = use_llapi2 ? joy_ll_b : joy1_hps;
+// if LLAPI is enabled, shift USB controllers to next available player slot
+always_comb begin
+	if (use_llapi & use_llapi2) begin
+		joy0 = joy_ll_a;
+		joy1 = joy_ll_b;
+		joy2 = joy0_hps;
+		joy3 = joy1_hps;
+		joy4 = joy2_hps;
+	end else if (use_llapi ^ use_llapi2) begin
+		joy0 = use_llapi  ? joy_ll_a : joy0_hps;
+		joy1 = use_llapi2 ? joy_ll_b : joy0_hps;
+		joy2 = joy1_hps;
+		joy3 = joy2_hps;
+		joy4 = joy3_hps;
+	end else begin
+		joy0 = joy0_hps;
+		joy1 = joy1_hps;
+		joy2 = joy2_hps;
+		joy3 = joy3_hps;
+		joy4 = joy4_hps;
+	end
+end
 
 /////////////////////////  STATE SAVE/LOAD  /////////////////////////////
 
