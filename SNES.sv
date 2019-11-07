@@ -788,7 +788,17 @@ lightgun lightgun
 );
 
 
-// Indexes:
+// SNAC Indexes:
+// 0 = D+    = Latch
+// 1 = D-    = CLK
+// 2 = TX-   = P5
+// 3 = GND_d
+// 4 = RX+   = P6
+// 5 = RX-   = P4
+
+wire raw_serial = status[21];
+
+// LLAPI Indexes:
 // 0 = D+    = P1 Latch
 // 1 = D-    = P1 Data
 // 2 = TX-   = LLAPI Enable
@@ -796,7 +806,6 @@ lightgun lightgun
 // 4 = RX+   = P2 Latch
 // 5 = RX-   = P2 Data
 
-wire raw_serial = status[21];
 
 // JOYX_DO[0] is P4, JOYX_DO[1] is P5
 wire [1:0] JOY1_DI;
@@ -912,17 +921,17 @@ always_comb begin
 	end
 end
 
-wire llapi_osd = (llapi_buttons[26] & llapi_buttons[5] & llapi_buttons[0]) || (llapi_buttons2[26] & llapi_buttons2[5] & llapi_buttons2[0]);
+wire llapi_osd = (llapi_buttons[26] && llapi_buttons[5] && llapi_buttons[0]) || (llapi_buttons2[26] && llapi_buttons2[5] && llapi_buttons2[0]);
 
 // if LLAPI is enabled, shift USB controllers to next available player slot
 always_comb begin
-	if (use_llapi & use_llapi2) begin
+	if (use_llapi && use_llapi2) begin
 		joy0 = joy_ll_a;
 		joy1 = joy_ll_b;
 		joy2 = joy0_hps;
 		joy3 = joy1_hps;
 		joy4 = joy2_hps;
-	end else if (use_llapi ^ use_llapi2) begin
+	end else if (use_llapi || use_llapi2) begin
 		joy0 = use_llapi  ? joy_ll_a : joy0_hps;
 		joy1 = use_llapi2 ? joy_ll_b : joy0_hps;
 		joy2 = joy1_hps;
