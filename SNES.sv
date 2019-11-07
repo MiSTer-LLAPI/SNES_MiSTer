@@ -865,8 +865,8 @@ LLAPI llapi2
 	.LLAPI_EN(llapi_en2)
 );
 
-wire use_llapi = llapi_en && llapi_select;
-wire use_llapi2 = llapi_en2 && llapi_select;
+wire use_llapi = llapi_en && llapi_select && (|llapi_type);
+wire use_llapi2 = llapi_en2 && llapi_select && (|llapi_type2);
 
 wire [11:0] joy_ll_a;
 always_comb begin
@@ -916,13 +916,13 @@ wire llapi_osd = (llapi_buttons[26] & llapi_buttons[5] & llapi_buttons[0]) || (l
 
 // if LLAPI is enabled, shift USB controllers to next available player slot
 always_comb begin
-	if (use_llapi & use_llapi2) begin
+	if (use_llapi && use_llapi2) begin
 		joy0 = joy_ll_a;
 		joy1 = joy_ll_b;
 		joy2 = joy0_hps;
 		joy3 = joy1_hps;
 		joy4 = joy2_hps;
-	end else if (use_llapi ^ use_llapi2) begin
+	end else if (use_llapi || use_llapi2) begin
 		joy0 = use_llapi  ? joy_ll_a : joy0_hps;
 		joy1 = use_llapi2 ? joy_ll_b : joy0_hps;
 		joy2 = joy1_hps;
