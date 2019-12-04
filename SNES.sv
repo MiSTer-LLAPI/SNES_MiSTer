@@ -822,7 +822,7 @@ always_comb begin
 		JOY1_DI = joy_swap ? JOY1_DO : {USER_IN[2], USER_IN[5]};
 		JOY2_DI = joy_swap ? {USER_IN[2], USER_IN[5]} : JOY2_DO;
 		JOY2_P6_DI = joy_swap ? USER_IN[4] : (LG_P6_out | !GUN_MODE);
-	end else if (llapi_select) begin
+	end else begin
 		USER_OUT[0] = llapi_latch_o;
 		USER_OUT[1] = llapi_data_o;
 		USER_OUT[2] = ~(llapi_select & ~OSD_STATUS);
@@ -880,10 +880,12 @@ always @(posedge CLK_50M) begin
 	if (reset) begin
 		llapi_button_pressed  <= 0;
 		llapi_button_pressed2 <= 0;
-	end else if (|llapi_buttons)
-		llapi_button_pressed  <= 1;
-	else if (|llapi_buttons2)
-		llapi_button_pressed2 <= 1;
+	end else begin
+		if (|llapi_buttons)
+			llapi_button_pressed  <= 1;
+		if (|llapi_buttons2)
+			llapi_button_pressed2 <= 1;
+	end
 end
 
 // controller id is 0 if there is either an Atari controller or no controller
