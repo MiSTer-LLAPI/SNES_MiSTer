@@ -822,10 +822,10 @@ always_comb begin
 		JOY1_DI = joy_swap ? JOY1_DO : {USER_IN[2], USER_IN[5]};
 		JOY2_DI = joy_swap ? {USER_IN[2], USER_IN[5]} : JOY2_DO;
 		JOY2_P6_DI = joy_swap ? USER_IN[4] : (LG_P6_out | !GUN_MODE);
-	end else begin
+	end else if (llapi_select) begin
 		USER_OUT[0] = llapi_latch_o;
 		USER_OUT[1] = llapi_data_o;
-		USER_OUT[2] = ~(status[22] & ~OSD_STATUS);
+		USER_OUT[2] = ~(llapi_select & ~OSD_STATUS);
 		USER_OUT[4] = llapi_latch_o2;
 		USER_OUT[5] = llapi_data_o2;
 		JOY1_DI = JOY1_DO;
@@ -876,7 +876,7 @@ LLAPI llapi2
 
 reg llapi_button_pressed, llapi_button_pressed2;
 
-always @(posedge clk_sys) begin
+always @(posedge CLK_50M) begin
 	if (reset) begin
 		llapi_button_pressed  <= 0;
 		llapi_button_pressed2 <= 0;
