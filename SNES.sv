@@ -131,7 +131,7 @@ assign AUDIO_MIX = status[20:19];
 assign LED_USER  = cart_download | (status[23] & bk_pending);
 assign LED_DISK  = 0;
 assign LED_POWER = 0;
-assign BUTTONS   = llapi_osd;
+assign BUTTONS   = osd_btn | llapi_osd;
 
 assign VIDEO_ARX = status[31:30] == 2 ? 8'd16 : (status[30] ? 8'd8 : 8'd64);
 assign VIDEO_ARY = status[31:30] == 2 ? 8'd9  : (status[30] ? 8'd7 : 8'd49);
@@ -412,6 +412,26 @@ always @(posedge clk_sys) begin
 	end
 end
 
+reg osd_btn = 0;
+always @(posedge clk_sys) begin
+	integer timeout = 0;
+	reg     has_bootrom = 0;
+	reg     last_rst = 0;
+
+	if (RESET) last_rst = 0;
+	if (status[0]) last_rst = 1;
+
+	if (cart_download & ioctl_wr & status[0]) has_bootrom <= 1;
+
+	if(last_rst & ~status[0]) begin
+		osd_btn <= 0;
+		if(timeout < 24000000) begin
+			timeout <= timeout + 1;
+			osd_btn <= ~has_bootrom;
+		end
+	end
+end
+
 ////////////////////////////  SYSTEM  ///////////////////////////////////
 
 wire GSU_ACTIVE;
@@ -636,7 +656,7 @@ dpram_dif #(BSRAM_BITS,8,BSRAM_BITS-1,16) bsram
 
 	//Thrash the BSRAM upon ROM loading
 	.address_a(cart_download ? ioctl_addr[BSRAM_BITS-1:0] : BSRAM_ADDR[BSRAM_BITS-1:0]),
-	.data_a(cart_download ? ioctl_addr[7:0] : BSRAM_D),
+	.data_a(cart_download ? 8'hFF : BSRAM_D),
 	.wren_a(cart_download ? ioctl_wr : ~BSRAM_CE_N & ~BSRAM_WE_N),
 	.q_a(BSRAM_Q),
 
