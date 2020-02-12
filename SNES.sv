@@ -210,9 +210,15 @@ always @(posedge CLK_50M) begin
 	end
 end
 
-wire reset = RESET | buttons[1] | status[0] | cart_download | bk_loading;
+wire reset = RESET | buttons[1] | status[0] | cart_download | bk_loading | clearing_ram;
 
 ////////////////////////////  HPS I/O  //////////////////////////////////
+
+// Status Bit Map:
+// 0         1         2         3
+// 01234567890123456789012345678901
+// 0123456789ABCDEFGHIJKLMNOPQRSTUV
+// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 `include "build_id.v"
 parameter CONF_STR = {
@@ -246,11 +252,12 @@ parameter CONF_STR = {
     "D1OI,SuperFX Speed,Normal,Turbo;",
     "D3O4,CPU Speed,Normal,Turbo;",
     "-;",
+    "OLM,Initial WRAM,00FF(SNES1),9966(SNES2),55(SD2SNES),FF;",
+    "-;",
     "R0,Reset;",
     "J1,A(SS Fire),B(SS Cursor),X(SS TurboSw),Y(SS Pause),LT(SS Cursor),RT(SS Fire),Select,Start;",
     "V,v",`BUILD_DATE
 };
-// free bits: 8
 
 wire  [1:0] buttons;
 wire [31:0] status;
@@ -557,6 +564,30 @@ end
 
 ////////////////////////////  MEMORY  ///////////////////////////////////
 
+reg [16:0] mem_fill_addr;
+reg clearing_ram = 0;
+always @(posedge clk_sys) begin
+	if(~old_downloading & cart_download)
+		clearing_ram <= 1'b1;
+
+	if (&mem_fill_addr) clearing_ram <= 0;
+
+	if (clearing_ram)
+		mem_fill_addr <= mem_fill_addr + 1'b1;
+	else
+		mem_fill_addr <= 0;
+end
+
+reg [7:0] wram_fill_data;
+always @* begin
+    case(status[22:21])
+        0: wram_fill_data = (mem_fill_addr[9] ^ mem_fill_addr[0]) ? 8'hFF : 8'h00;
+        1: wram_fill_data = (mem_fill_addr[8] ^ mem_fill_addr[2]) ? 8'h66 : 8'h99;
+        2: wram_fill_data = 8'h55;
+        3: wram_fill_data = 8'hFF;
+    endcase
+end
+
 wire[23:0] ROM_ADDR;
 wire       ROM_CE_N;
 wire       ROM_OE_N;
@@ -591,9 +622,9 @@ dpram #(17)	wram
 	.q_a(WRAM_Q),
 
 	// clear the RAM on loading
-	.address_b(ioctl_addr[16:0]),
-	.data_b(ioctl_addr[7:0]),
-	.wren_b(ioctl_wr & cart_download)
+	.address_b(mem_fill_addr[16:0]),
+	.data_b(wram_fill_data),
+	.wren_b(clearing_ram)
 );
 
 wire [15:0] VRAM1_ADDR;
@@ -608,8 +639,8 @@ dpram #(15)	vram1
 	.q_a(VRAM1_Q),
 
 	// clear the RAM on loading
-	.address_b(ioctl_addr[14:0]),
-	.wren_b(ioctl_wr & cart_download)
+	.address_b(mem_fill_addr[14:0]),
+	.wren_b(clearing_ram)
 );
 
 wire [15:0] VRAM2_ADDR;
@@ -624,8 +655,8 @@ dpram #(15) vram2
 	.q_a(VRAM2_Q),
 
 	// clear the RAM on loading
-	.address_b(ioctl_addr[14:0]),
-	.wren_b(ioctl_wr & cart_download)
+	.address_b(mem_fill_addr[14:0]),
+	.wren_b(clearing_ram)
 );
 
 wire [15:0] ARAM_ADDR;
@@ -641,8 +672,8 @@ dpram #(16) aram
 	.q_A(ARAM_Q),
 
 	// clear the RAM on loading
-	.address_b(ioctl_addr[15:0]),
-	.wren_b(ioctl_wr & cart_download)
+	.address_b(mem_fill_addr[15:0]),
+	.wren_b(clearing_ram)
 );
 
 localparam  BSRAM_BITS = 17; // 1Mbits
@@ -655,9 +686,9 @@ dpram_dif #(BSRAM_BITS,8,BSRAM_BITS-1,16) bsram
 	.clock(clk_sys),
 
 	//Thrash the BSRAM upon ROM loading
-	.address_a(cart_download ? ioctl_addr[BSRAM_BITS-1:0] : BSRAM_ADDR[BSRAM_BITS-1:0]),
-	.data_a(cart_download ? 8'hFF : BSRAM_D),
-	.wren_a(cart_download ? ioctl_wr : ~BSRAM_CE_N & ~BSRAM_WE_N),
+	.address_a(clearing_ram ? mem_fill_addr[BSRAM_BITS-1:0] : BSRAM_ADDR[BSRAM_BITS-1:0]),
+	.data_a(clearing_ram ? 8'hFF : BSRAM_D),
+	.wren_a(clearing_ram ? 1'b1 : ~BSRAM_CE_N & ~BSRAM_WE_N),
 	.q_a(BSRAM_Q),
 
 	.address_b({sd_lba[BSRAM_BITS-10:0],sd_buff_addr}),
