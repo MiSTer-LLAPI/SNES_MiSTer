@@ -220,7 +220,7 @@ wire reset = RESET | buttons[1] | status[0] | cart_download | bk_loading | clear
 // 0         1         2         3          4         5         6
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// XXXXXXXX XXXXXXXXXXXXXXXXXXXXXXX XX
+// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX XX
 
 `include "build_id.v"
 parameter CONF_STR = {
@@ -1041,7 +1041,7 @@ reg bk_pending;
 always @(posedge clk_sys) begin
 	if (bk_ena && ~OSD_STATUS && bk_save_write)
 		bk_pending <= 1'b1;
-	else if (bk_state)
+	else if (bk_state | ~bk_ena)
 		bk_pending <= 1'b0;
 end
 
