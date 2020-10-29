@@ -52,13 +52,7 @@ entity DSP_LHRomMap is
 		ROM_MASK		: in std_logic_vector(23 downto 0);
 		BSRAM_MASK	: in std_logic_vector(23 downto 0);
 
-		EXT_RTC		: in std_logic_vector(64 downto 0);
-
-		BRK_OUT		: out std_logic;
-		DBG_REG		: in std_logic_vector(7 downto 0) := (others => '0');
-		DBG_DAT_IN	: in std_logic_vector(7 downto 0) := (others => '0');
-		DBG_DAT_OUT	: out std_logic_vector(7 downto 0);
-		DBG_DAT_WR	: in std_logic := '0'
+		EXT_RTC		: in std_logic_vector(64 downto 0)
 	);
 end DSP_LHRomMap;
 
@@ -166,10 +160,12 @@ begin
 					end if;
 					DSP_SEL <= '0';
 					DSP_A0 <= '1';
-				when others =>
-					CART_ADDR <= "0" & (not CA(23) and not MAP_CTRL(7)) & CA(21 downto 0);
-					BRAM_ADDR <= CA(19 downto 0);
-					BSRAM_SEL <= '0';
+				when others =>					-- SpecialLoROM														
+					CART_ADDR <= "00" & (CA(23) and not CA(21)) & CA(21 downto 16) & CA(14 downto 0);--00-1F:8000-FFFF; 20-3F/A0-BF:8000-FFFF; 80-9F:8000-FFFF
+					BRAM_ADDR <= CA(20 downto 16) & CA(14 downto 0);
+					if CA(22 downto 20) = "111" and CA(15) = '0' and ROMSEL_N = '0' and BSRAM_MASK(10) = '1' then
+						BSRAM_SEL <= '1';
+					end if;
 					DSP_SEL <= '0';
 					DSP_A0 <= '1';
 			end case;
@@ -212,13 +208,7 @@ begin
 		DP_SEL      => DP_SEL,
 
 		VER			=> MAP_DSP_VER,
-		REV			=> not MAP_CTRL(2),
-
-		BRK_OUT		=> BRK_OUT,
-		DBG_REG  	=> DBG_REG,
-		DBG_DAT_IN	=> DBG_DAT_IN,
-		DBG_DAT_OUT	=> DBG_DAT_OUT,
-		DBG_DAT_WR	=> DBG_DAT_WR
+		REV			=> not MAP_CTRL(2)
 	);
 	end generate;
 
