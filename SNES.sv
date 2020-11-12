@@ -38,8 +38,8 @@ module emu
 	output        CE_PIXEL,
 
 	//Video aspect ratio for HDMI. Most retro systems have ratio 4:3.
-	output  [7:0] VIDEO_ARX,
-	output  [7:0] VIDEO_ARY,
+	output [11:0] VIDEO_ARX,
+	output [11:0] VIDEO_ARY,
 
 	output  [7:0] VGA_R,
 	output  [7:0] VGA_G,
@@ -49,6 +49,7 @@ module emu
 	output        VGA_DE,    // = ~(VBlank | HBlank)
 	output        VGA_F1,
 	output [1:0]  VGA_SL,
+	output        VGA_SCALER, // Force VGA scaler
 
 	output        LED_USER,  // 1 - ON, 0 - OFF.
 
@@ -133,9 +134,12 @@ assign LED_USER  = cart_download | spc_download | (status[23] & bk_pending);
 assign LED_DISK  = 0;
 assign LED_POWER = 0;
 assign BUTTONS   = osd_btn | llapi_osd;
+assign VGA_SCALER= 0;
 
-assign VIDEO_ARX = status[31:30] == 2 ? 8'd16 : (status[30] ? 8'd8 : 8'd64);
-assign VIDEO_ARY = status[31:30] == 2 ? 8'd9  : (status[30] ? 8'd7 : 8'd49);
+wire [1:0] ar = status[33:32];
+
+assign VIDEO_ARX = (!ar) ? 12'd64 : (ar - 1'd1);
+assign VIDEO_ARY = (!ar) ? 12'd49 : 12'd0;
 
 assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = 0;
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
@@ -241,7 +245,7 @@ parameter CONF_STR = {
 
 	 "P1,Audio & Video;",
     "P1-;",
-    "P1OUV,Aspect Ratio,4:3,8:7,16:9;",
+	"P1o01,Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
     "P1O9B,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
     "P1OG,Pseudo Transparency,Blend,Off;",
     "P1-;",
