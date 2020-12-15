@@ -224,7 +224,7 @@ wire reset = RESET | buttons[1] | status[0] | cart_download | spc_download | bk_
 // 0         1         2         3          4         5         6
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX XX
+// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX XX                            XX
 
 `include "build_id.v"
 parameter CONF_STR = {
@@ -254,7 +254,7 @@ parameter CONF_STR = {
 	 "P2,Hardware;",
     "P2-;",
     "P2OH,Multitap,Disabled,Port2;",
-    "o01,Serial,OFF,SNAC,LLAPI;",
+    "oUV,Serial,OFF,SNAC,LLAPI;",
     "P2-;",
     "P2OPQ,Super Scope,Disabled,Joy1,Joy2,Mouse;",
     "D4P2OR,Super Scope Btn,Joy,Mouse;",
@@ -892,7 +892,7 @@ lightgun lightgun
 // 4 = RX+   = P6
 // 5 = RX-   = P4
 
-wire raw_serial = status[32];
+wire raw_serial = status[62];
 
 // LLAPI Indexes:
 // 0 = D+    = P1 Latch
@@ -936,7 +936,7 @@ wire [71:0] llapi_analog, llapi_analog2;
 wire [7:0]  llapi_type, llapi_type2;
 wire llapi_en, llapi_en2;
 
-wire llapi_select = status[33];
+wire llapi_select = status[63];
 
 wire llapi_latch_o, llapi_latch_o2, llapi_data_o, llapi_data_o2;
 
