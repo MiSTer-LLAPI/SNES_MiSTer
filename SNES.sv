@@ -224,7 +224,7 @@ wire reset = RESET | buttons[1] | status[0] | cart_download | spc_download | bk_
 // 0         1         2         3          4         5         6
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX XX                            XX
+// XXXXXXXX XXXXXXXXXXXXXXXXXXXXX   XXX                           XX
 
 `include "build_id.v"
 parameter CONF_STR = {
@@ -259,6 +259,7 @@ parameter CONF_STR = {
     "P2OPQ,Super Scope,Disabled,Joy1,Joy2,Mouse;",
     "D4P2OR,Super Scope Btn,Joy,Mouse;",
     "D4P2OST,Cross,Small,Big,None;",
+	"D4P2o2,Gun Type,Super Scope,Justifier;",
     "P2-;",
     "D1P2OI,SuperFX Speed,Normal,Turbo;",
     "D3P2O4,CPU Speed,Normal,Turbo;",
@@ -356,6 +357,7 @@ hps_io #(.STRLEN($size(CONF_STR)>>3), .WIDE(1)) hps_io
 
 wire       GUN_BTN = status[27];
 wire [1:0] GUN_MODE = status[26:25];
+wire       GUN_TYPE = status[34];
 wire       GSU_TURBO = status[18];
 wire       BLEND = ~status[16];
 wire [1:0] mouse_mode = status[6:5];
@@ -518,19 +520,19 @@ main main
 	.ARAM_CE_N(ARAM_CE_N),
 	.ARAM_WE_N(ARAM_WE_N),
 
-	.R(R),
-	.G(G),
-	.B(B),
+	.R(R_out),
+	.G(G_out),
+	.B(B_out),
 
 	.FIELD(FIELD),
 	.INTERLACE(INTERLACE),
 	.HIGH_RES(HIGH_RES),
-	.DOTCLK(DOTCLK),
+	.DOTCLK(DOTCLK_out),
 	
-	.HBLANKn(HBlank_n),
-	.VBLANKn(VBlank_n),
-	.HSYNC(HSYNC),
-	.VSYNC(VSYNC),
+	.HBLANKn(HBlank_out),
+	.VBLANKn(VBlank_out),
+	.HSYNC(HSYNC_out),
+	.VSYNC(VSYNC_out),
 
 	.JOY1_DI(JOY1_DI),
 	.JOY2_DI(GUN_MODE ? LG_DO : JOY2_DI),
@@ -744,14 +746,35 @@ dpram_dif #(BSRAM_BITS,8,BSRAM_BITS-1,16) bsram
 
 ////////////////////////////  VIDEO  ////////////////////////////////////
 
-wire [7:0] R,G,B;
+wire [7:0] R_out,G_out,B_out;
+wire HSYNC_out;
+wire VSYNC_out;
+wire HBlank_out;
+wire VBlank_out;
+wire DOTCLK_out;
+
+always @(posedge clk_sys) begin
+	DOTCLK <= DOTCLK_out;
+	if(DOTCLK ^ DOTCLK_out) begin
+		R <= R_out;
+		G <= G_out;
+		B <= B_out;
+		HSYNC  <= HSYNC_out;
+		VSYNC  <= VSYNC_out;
+		HBlank <= ~HBlank_out;
+		VBlank <= ~VBlank_out;
+	end
+end
+
+
+reg  [7:0] R,G,B;
 wire FIELD,INTERLACE;
-wire HSync, HSYNC;
-wire VSync, VSYNC;
-wire HBlank_n;
-wire VBlank_n;
+reg  HSync, HSYNC;
+reg  VSync, VSYNC;
+reg  HBlank;
+reg  VBlank;
 wire HIGH_RES;
-wire DOTCLK;
+reg  DOTCLK;
 
 reg interlace;
 reg ce_pix;
@@ -772,7 +795,7 @@ always @(posedge CLK_VIDEO) begin
 
 	pcnt <= pcnt + 1'd1;
 	old_dotclk <= DOTCLK;
-	if(~old_dotclk & DOTCLK & HBlank_n & VBlank_n) pcnt <= 1;
+	if(~old_dotclk & DOTCLK & ~HBlank & ~VBlank) pcnt <= 1;
 
 	ce_pix <= !pcnt[1:0] & (frame_hres | ~pcnt[2]);
 	
@@ -797,8 +820,6 @@ video_mixer #(.LINE_LENGTH(520), .GAMMA(1)) video_mixer
 	.hq2x(scale==1),
 	.mono(0),
 
-	.HBlank(~HBlank_n),
-	.VBlank(~VBlank_n),
 	.R((LG_TARGET && GUN_MODE && (!status[29] | LG_T)) ? {8{LG_TARGET[0]}} : R),
 	.G((LG_TARGET && GUN_MODE && (!status[29] | LG_T)) ? {8{LG_TARGET[1]}} : G),
 	.B((LG_TARGET && GUN_MODE && (!status[29] | LG_T)) ? {8{LG_TARGET[2]}} : B)
@@ -870,12 +891,13 @@ lightgun lightgun
 	.T(LG_T), // always from joysticks
 	.P(ps2_mouse[2] | ((GUN_MODE[0]&joy0[7]) | (GUN_MODE[1]&joy1[7]))), // always from joysticks and mouse
 
-	.HDE(HBlank_n),
-	.VDE(VBlank_n),
+	.HDE(~HBlank),
+	.VDE(~VBlank),
 	.CLKPIX(DOTCLK),
 	
 	.TARGET(LG_TARGET),
 	.SIZE(status[28]),
+	.GUN_TYPE(GUN_TYPE),
 
 	.PORT_LATCH(JOY_STRB),
 	.PORT_CLK(JOY2_CLK),
