@@ -183,7 +183,9 @@ assign AUDIO_MIX = status[20:19];
 assign LED_USER  = cart_download | spc_download | (status[23] & bk_pending);
 assign LED_DISK  = 0;
 assign LED_POWER = 0;
+//LLAPI: OSD combinaison
 assign BUTTONS   = osd_btn | llapi_osd;
+//LLAPI
 assign VGA_SCALER= 0;
 assign HDMI_FREEZE = 0;
 
@@ -328,7 +330,11 @@ parameter CONF_STR = {
 	 "P2,Hardware;",
     "P2-;",
     "P2OH,Multitap,Disabled,Port2;",
-    "oUV,Serial,OFF,SNAC,LLAPI;",
+    //LLAPI: OSD menu item. swapped NONE with LLAPI. To detect LLAPI, status[63] = 1.
+	//LLAPI: Always double check witht the bits map allocation table to avoid conflicts	
+	"oUV,Serial,OFF,SNAC,LLAPI;",
+	"P2-;",
+	//LLAPI
     "P2-;",
     "P2OPQ,Super Scope,Disabled,Joy1,Joy2,Mouse;",
     "D4P2OR,Super Scope Btn,Joy,Mouse;",
@@ -374,7 +380,9 @@ wire [11:0] joy0,joy1,joy2,joy3,joy4;
 wire [24:0] ps2_mouse;
 wire [10:0] ps2_key;
 
-wire [11:0] joy0_hps, joy1_hps, joy2_hps, joy3_hps, joy4_hps;
+//LLAPI: Distinguish hps_io (usb) josticks from llapi joysticks
+wire [11:0] joy_usb_0, joy_usb_1, joy_usb_2, joy_usb_3, joy_usb_4;
+//LLAPI
 
 wire  [7:0] joy0_x,joy0_y,joy1_x,joy1_y;
 
@@ -393,11 +401,13 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 
 	.joystick_analog_0({joy0_y, joy0_x}),
 	.joystick_analog_1({joy1_y, joy1_x}),
-	.joystick_0(joy0_hps),
-	.joystick_1(joy1_hps),
-	.joystick_2(joy2_hps),
-	.joystick_3(joy3_hps),
-	.joystick_4(joy4_hps),
+	//LLAPI : renamed hps_io (usb) joysticks
+	.joystick_0(joy_usb_0),
+	.joystick_1(joy_usb_1),
+	.joystick_2(joy_usb_2),
+	.joystick_3(joy_usb_3),
+	.joystick_4(joy_usb_4),
+	//LLAPI
 	.ps2_mouse(ps2_mouse),
 	.ps2_key(ps2_key),
 	
@@ -1018,19 +1028,22 @@ always_comb begin
 		JOY1_DI = joy_swap ? JOY1_DO : {USER_IN[2], USER_IN[5]};
 		JOY2_DI = joy_swap ? {USER_IN[2], USER_IN[5]} : JOY2_DO;
 		JOY2_P6_DI = joy_swap ? USER_IN[4] : (LG_P6_out | !GUN_MODE);
+	//LLAPI: Connection to USER_OUT port
 	end else begin
 		USER_OUT[0] = llapi_latch_o;
 		USER_OUT[1] = llapi_data_o;
-		USER_OUT[2] = ~(llapi_select & ~OSD_STATUS);
+		USER_OUT[2] = ~(llapi_select & ~OSD_STATUS); // LED for Blister
 		USER_OUT[4] = llapi_latch_o2;
 		USER_OUT[5] = llapi_data_o2;
 		JOY1_DI = JOY1_DO;
 		JOY2_DI = JOY2_DO;
 		JOY2_P6_DI = (LG_P6_out | !GUN_MODE);
+		//LLAPI
 	end
 end
 
-// LLAPI
+//////////////////   LLAPI   ///////////////////
+
 wire [31:0] llapi_buttons, llapi_buttons2;
 wire [71:0] llapi_analog, llapi_analog2;
 wire [7:0]  llapi_type, llapi_type2;
@@ -1040,6 +1053,7 @@ wire llapi_select = status[63];
 
 wire llapi_latch_o, llapi_latch_o2, llapi_data_o, llapi_data_o2;
 
+//Port 1 conf
 LLAPI llapi
 (
 	.CLK_50M(CLK_50M),
@@ -1055,6 +1069,7 @@ LLAPI llapi
 	.LLAPI_EN(llapi_en)
 );
 
+//Port 2 conf
 LLAPI llapi2
 (
 	.CLK_50M(CLK_50M),
@@ -1090,6 +1105,12 @@ end
 wire use_llapi  = llapi_en  && llapi_select && ((|llapi_type  && ~(&llapi_type))  || llapi_button_pressed);
 wire use_llapi2 = llapi_en2 && llapi_select && ((|llapi_type2 && ~(&llapi_type2)) || llapi_button_pressed2);
 
+//Controller string provided by core for reference (order is important)
+//Controller specific mapping based on type. More info here : https://docs.google.com/document/d/12XpxrmKYx_jgfEPyw-O2zex1kTQZZ-NSBdLO2RQPRzM/edit
+//llapi_Buttons id are HID id - 1
+
+//Port 1 mapping
+
 wire [11:0] joy_ll_a;
 always_comb begin
 	// map for saturn controller
@@ -1111,6 +1132,8 @@ always_comb begin
 		};
 	end
 end
+
+//Port 2 mapping
 
 wire [11:0] joy_ll_b;
 always_comb begin
@@ -1134,29 +1157,31 @@ always_comb begin
 	end
 end
 
+//Assign (DOWN + FIRST BUTTON) Combinaison to bring the OSD up - P1 and P1 ports.
+//TODO : Support long press detection
 wire llapi_osd = (llapi_buttons[26] && llapi_buttons[5] && llapi_buttons[0]) || (llapi_buttons2[26] && llapi_buttons2[5] && llapi_buttons2[0]);
 
 // if LLAPI is enabled, shift USB controllers to next available player slot
 always_comb begin
-	if (use_llapi && use_llapi2) begin
-		joy0 = joy_ll_a;
-		joy1 = joy_ll_b;
-		joy2 = joy0_hps;
-		joy3 = joy1_hps;
-		joy4 = joy2_hps;
-	end else if (use_llapi || use_llapi2) begin
-		joy0 = use_llapi  ? joy_ll_a : joy0_hps;
-		joy1 = use_llapi2 ? joy_ll_b : joy0_hps;
-		joy2 = joy1_hps;
-		joy3 = joy2_hps;
-		joy4 = joy3_hps;
-	end else begin
-		joy0 = joy0_hps;
-		joy1 = joy1_hps;
-		joy2 = joy2_hps;
-		joy3 = joy3_hps;
-		joy4 = joy4_hps;
-	end
+	 if (use_llapi & use_llapi2) begin
+                joy0 = joy_ll_a;
+                joy1 = joy_ll_b;
+                joy2 = joy_usb_0;
+                joy3 = joy_usb_1;
+                joy4 = joy_usb_2;
+        end else if (use_llapi ^ use_llapi2) begin
+                joy0 = use_llapi  ? joy_ll_a : joy_usb_0;
+                joy1 = use_llapi2 ? joy_ll_b : joy_usb_0;
+                joy2 = joy_usb_1;
+                joy3 = joy_usb_2;
+                joy4 = joy_usb_3;
+        end else begin
+                joy0 = joy_usb_0;
+                joy1 = joy_usb_1;
+                joy2 = joy_usb_2;
+                joy3 = joy_usb_3;
+                joy4 = joy_usb_4;
+        end
 end
 
 /////////////////////////  STATE SAVE/LOAD  /////////////////////////////
