@@ -1,100 +1,114 @@
-
 module main (
-   input             RESET_N,
+	input             RESET_N,
 
-   input             MCLK,
-   input             ACLK,
+	input             MCLK,
+	input             ACLK,
 
-   input       [7:0] ROM_TYPE,
-   input      [23:0] ROM_MASK,
-   input      [23:0] RAM_MASK,
+	input       [7:0] ROM_TYPE,
+	input      [23:0] ROM_MASK,
+	input      [23:0] RAM_MASK,
 
-   output reg [23:0] ROM_ADDR,
+	output reg [23:0] ROM_ADDR,
 	output reg [15:0] ROM_D,
-   input      [15:0] ROM_Q,
-   output reg        ROM_CE_N,
-   output reg        ROM_OE_N,
+	input      [15:0] ROM_Q,
+	output reg        ROM_CE_N,
+	output reg        ROM_OE_N,
 	output reg        ROM_WE_N,
-   output reg        ROM_WORD,
+	output reg        ROM_WORD,
 
-   output reg [19:0] BSRAM_ADDR,
-   output reg  [7:0] BSRAM_D,
-   input       [7:0] BSRAM_Q,
-   output reg        BSRAM_CE_N,
-   output reg        BSRAM_OE_N,
-   output reg        BSRAM_WE_N,
+	output reg [19:0] BSRAM_ADDR,
+	output reg  [7:0] BSRAM_D,
+	input       [7:0] BSRAM_Q,
+	output reg        BSRAM_CE_N,
+	output reg        BSRAM_OE_N,
+	output reg        BSRAM_WE_N,
 
-   output     [16:0] WRAM_ADDR,
-   output      [7:0] WRAM_D,
-   input       [7:0] WRAM_Q,
-   output            WRAM_CE_N,
-   output            WRAM_OE_N,
-   output            WRAM_WE_N,
+	output     [16:0] WRAM_ADDR,
+	output      [7:0] WRAM_D,
+	input       [7:0] WRAM_Q,
+	output            WRAM_CE_N,
+	output            WRAM_OE_N,
+	output            WRAM_WE_N,
 
-   output     [15:0] VRAM1_ADDR,
-   input       [7:0] VRAM1_DI,
-   output      [7:0] VRAM1_DO,
-   output            VRAM1_WE_N,
-   output     [15:0] VRAM2_ADDR,
-   input       [7:0] VRAM2_DI,
-   output      [7:0] VRAM2_DO,
-   output            VRAM2_WE_N,
-   output            VRAM_OE_N,
+	output     [15:0] VRAM1_ADDR,
+	input       [7:0] VRAM1_DI,
+	output      [7:0] VRAM1_DO,
+	output            VRAM1_WE_N,
+	output     [15:0] VRAM2_ADDR,
+	input       [7:0] VRAM2_DI,
+	output      [7:0] VRAM2_DO,
+	output            VRAM2_WE_N,
+	output            VRAM_OE_N,
 
-   output     [15:0] ARAM_ADDR,
-   output      [7:0] ARAM_D,
-   input       [7:0] ARAM_Q,
-   output            ARAM_CE_N,
-   output            ARAM_OE_N,
-   output            ARAM_WE_N,
+	output     [15:0] ARAM_ADDR,
+	output      [7:0] ARAM_D,
+	input       [7:0] ARAM_Q,
+	output            ARAM_CE_N,
+	output            ARAM_OE_N,
+	output            ARAM_WE_N,
 
-   output            GSU_ACTIVE,
-   input             GSU_TURBO,
+	output            GSU_ACTIVE,
+	input             GSU_TURBO,
 
-   input             BLEND,
-   input             PAL,
-   output            HIGH_RES,
-   output            FIELD,
-   output            INTERLACE,
-   output            DOTCLK,
-   output      [7:0] R,
-   output      [7:0] G,
-   output      [7:0] B,
-   output            HBLANKn,
-   output            VBLANKn,
-   output            HSYNC,
-   output            VSYNC,
+	input             BLEND,
+	input             PAL,
+	output            HIGH_RES,
+	output            FIELD,
+	output            INTERLACE,
+	output            DOTCLK,
+	output      [7:0] R,
+	output      [7:0] G,
+	output      [7:0] B,
+	output            HBLANKn,
+	output            VBLANKn,
+	output            HSYNC,
+	output            VSYNC,
 
-   input       [1:0] JOY1_DI,
-   input       [1:0] JOY2_DI,
-   output            JOY_STRB,
-   output            JOY1_CLK,
-   output            JOY2_CLK,
-   output            JOY1_P6,
-   output            JOY2_P6,
-   input             JOY2_P6_in,
-	
+	input       [1:0] JOY1_DI,
+	input       [1:0] JOY2_DI,
+	output            JOY_STRB,
+	output            JOY1_CLK,
+	output            JOY2_CLK,
+	output            JOY1_P6,
+	output            JOY2_P6,
+	input             JOY2_P6_in,
+
 	input      [64:0] EXT_RTC,
 
-   input             GG_EN,
-   input     [128:0] GG_CODE,
-   input             GG_RESET,
-   output            GG_AVAILABLE,
-	
+	input             GG_EN,
+	input     [128:0] GG_CODE,
+	input             GG_RESET,
+	output            GG_AVAILABLE,
+
 	input             SPC_MODE,
-	
+
 	input      [16:0] IO_ADDR,
 	input      [15:0] IO_DAT,
 	input             IO_WR,
-	
+
 	input       [4:0] DBG_BG_EN,
 	input             DBG_CPU_EN,
 
-   input             TURBO,
-   output            TURBO_ALLOW,
+	input             TURBO,
+	output            TURBO_ALLOW,
 
-   output     [15:0] AUDIO_L,
-   output     [15:0] AUDIO_R
+	output     [15:0] MSU_TRACK_NUM,
+	output            MSU_TRACK_REQUEST,
+	input             MSU_TRACK_MOUNTING,
+	input             MSU_TRACK_MISSING,
+	output      [7:0] MSU_VOLUME,
+	input             MSU_AUDIO_STOP,
+	output            MSU_AUDIO_REPEAT,
+	output            MSU_AUDIO_PLAYING,
+	output     [31:0] MSU_DATA_ADDR,
+	input       [7:0] MSU_DATA,
+	input             MSU_DATA_ACK,
+	output            MSU_DATA_SEEK,
+	output            MSU_DATA_REQ,
+	input             MSU_ENABLE,
+
+	output     [15:0] AUDIO_L,
+	output     [15:0] AUDIO_R
 );
 
 parameter USE_DLH = 1'b1;
@@ -105,6 +119,7 @@ parameter USE_SA1 = 1'b1;
 parameter USE_DSPn = 1'b1;
 parameter USE_SPC7110 = 1'b1;
 parameter USE_BSX = 1'b1;
+parameter USE_MSU = 1'b1;
 
 wire [23:0] CA;
 wire        CPURD_N;
@@ -217,6 +232,54 @@ SNES SNES
 	.audio_r(AUDIO_R)
 );
 
+wire  [7:0] MSU_DO;
+wire        MSU_SEL;
+
+generate
+if (USE_MSU == 1'b1) begin
+MSU MSU
+(
+	.CLK(MCLK),
+	.RST_N(RESET_N),
+	.ENABLE(MSU_ENABLE),
+
+	.RD_N(CPURD_N),
+	.WR_N(CPUWR_N),
+	.SYSCLKF_CE(SYSCLKF_CE),
+
+	.ADDR(CA),
+	.DIN(DO),
+	.DOUT(MSU_DO),
+	.MSU_SEL(MSU_SEL),
+
+	.data_addr(MSU_DATA_ADDR),
+	.data(MSU_DATA),
+	.data_ack(MSU_DATA_ACK),
+	.data_seek(MSU_DATA_SEEK),
+	.data_req(MSU_DATA_REQ),
+
+	.track_num(MSU_TRACK_NUM),
+	.track_request(MSU_TRACK_REQUEST),
+	.track_mounting(MSU_TRACK_MOUNTING),
+
+	.status_track_missing(MSU_TRACK_MISSING),
+	.status_audio_repeat(MSU_AUDIO_REPEAT),
+	.status_audio_playing(MSU_AUDIO_PLAYING),
+	.audio_stop(MSU_AUDIO_STOP),
+
+	.volume(MSU_VOLUME)
+);
+end else begin
+	assign MSU_DO  = 0;
+	assign MSU_SEL = 0;
+	assign MSU_TRACK_NUM = 0;
+	assign MSU_TRACK_REQUEST = 0;
+	assign MSU_VOLUME = 0;
+	assign MSU_AUDIO_REPEAT = 0;
+	assign MSU_AUDIO_PLAYING = 0;
+end
+endgenerate
+
 wire  [7:0] DLH_DO;
 wire        DLH_IRQ_N;
 wire [23:0] DLH_ROM_ADDR;
@@ -242,7 +305,7 @@ DSP_LHRomMap #(.USE_DSPn(USE_DSPn)) DSP_LHRomMap
 	.do(DLH_DO),
 	.cpurd_n(CPURD_N),
 	.cpuwr_n(CPUWR_N),
-
+	
 	.pa(PA),
 	.pard_n(PARD_N),
 	.pawr_n(PAWR_N),
@@ -272,7 +335,7 @@ DSP_LHRomMap #(.USE_DSPn(USE_DSPn)) DSP_LHRomMap
 	.map_ctrl(ROM_TYPE),
 	.rom_mask(ROM_MASK),
 	.bsram_mask(RAM_MASK),
-	
+
 	.ext_rtc(EXT_RTC)
 );
 end else begin
@@ -661,6 +724,7 @@ BSXMap BSXMap
 	.map_ctrl(ROM_TYPE),
 	.rom_mask(ROM_MASK),
 	.bsram_mask(RAM_MASK),
+
 	
 	.ext_rtc(EXT_RTC)
 );
@@ -791,6 +855,8 @@ always @(*) begin
 			ROM_WORD   = DLH_ROM_WORD;
 		end
 	endcase
+	
+	if(MSU_SEL)   DI = MSU_DO;
 end
 
 endmodule

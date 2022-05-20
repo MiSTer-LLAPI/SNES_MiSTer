@@ -24,14 +24,14 @@ entity DSP_LHRomMap is
 		PA				: in std_logic_vector(7 downto 0);
 		PARD_N		: in std_logic;
 		PAWR_N		: in std_logic;
-		
+
 		ROMSEL_N		: in std_logic;
 		RAMSEL_N		: in std_logic;
-		
+
 		SYSCLKF_CE	: in std_logic;
 		SYSCLKR_CE	: in std_logic;
 		REFRESH		: in std_logic;
-		
+
 		IRQ_N			: out std_logic;
 
 		ROM_ADDR		: out std_logic_vector(23 downto 0);
@@ -39,7 +39,7 @@ entity DSP_LHRomMap is
 		ROM_CE_N		: out std_logic;
 		ROM_OE_N		: out std_logic;
 		ROM_WORD		: out std_logic;
-		
+
 		BSRAM_ADDR	: out std_logic_vector(19 downto 0);
 		BSRAM_D		: out std_logic_vector(7 downto 0);
 		BSRAM_Q		: in  std_logic_vector(7 downto 0);
@@ -52,7 +52,7 @@ entity DSP_LHRomMap is
 		ROM_MASK		: in std_logic_vector(23 downto 0);
 		BSRAM_MASK	: in std_logic_vector(23 downto 0);
 
-		EXT_RTC		: in std_logic_vector(64 downto 0)
+		EXT_RTC		: in  std_logic_vector(64 downto 0)
 	);
 end DSP_LHRomMap;
 
@@ -64,20 +64,20 @@ architecture rtl of DSP_LHRomMap is
 	signal BSRAM_SEL 		: std_logic;
 	signal NO_BSRAM_SEL	: std_logic;
 	signal DP_SEL    		: std_logic;
-	
+
 	signal DSP_SEL	  		: std_logic;
 	signal DSP_DO    		: std_logic_vector(7 downto 0);
 	signal DSP_A0	  		: std_logic;
 	signal DSP_CS_N  		: std_logic;
 	signal DSP_CE	  		: std_logic;
-	
+
 	signal OBC1_SEL		: std_logic;
 	signal OBC1_SRAM_A 	: std_logic_vector(12 downto 0);
 	signal OBC1_SRAM_DO 	: std_logic_vector(7 downto 0);
-	
+
 	signal SRTC_DO 		: std_logic_vector(7 downto 0);
 	signal SRTC_SEL		: std_logic;
-	
+
 	signal OPENBUS   		: std_logic_vector(7 downto 0);
 
 	signal MAP_DSP_VER	: std_logic_vector(2 downto 0);
@@ -85,9 +85,9 @@ architecture rtl of DSP_LHRomMap is
 	signal MAP_OBC1_SEL 	: std_logic;
 	signal DSP_CLK	  		: integer;
 	signal ROM_RD	  		: std_logic;
-		
+
 begin
-	
+
 	MAP_DSP_VER <= MAP_CTRL(3) & MAP_CTRL(5 downto 4);
 	MAP_DSP_SEL <= not MAP_CTRL(6) and (MAP_CTRL(7) or not (MAP_CTRL(5) or MAP_CTRL(4)));	--8..B
 	MAP_OBC1_SEL <= MAP_CTRL(7) and MAP_CTRL(6) and not MAP_CTRL(5) and not MAP_CTRL(4);	--C
@@ -101,7 +101,7 @@ begin
 		OUT_CLK => DSP_CLK,
 		CE      => DSP_CE
 	);
-	
+
 	DSP_CLK <= 760000 when MAP_CTRL(3) = '0' else 1000000;
 
 	process( CA, MAP_CTRL, ROMSEL_N, RAMSEL_N, BSRAM_MASK, ROM_MASK )
@@ -168,7 +168,7 @@ begin
 					if CA(22) = '0' and CA(15 downto 1) = x"280"&"000" and MAP_CTRL(3) = '1' then
 						SRTC_SEL <= '1';
 					end if;
-				when others =>					-- SpecialLoROM														
+				when others =>					-- SpecialLoROM
 					CART_ADDR <= "00" & (CA(23) and not CA(21)) & CA(21 downto 16) & CA(14 downto 0);--00-1F:8000-FFFF; 20-3F/A0-BF:8000-FFFF; 80-9F:8000-FFFF
 					BRAM_ADDR <= CA(20 downto 16) & CA(14 downto 0);
 					if CA(22 downto 20) = "111" and CA(15) = '0' and ROMSEL_N = '0' and BSRAM_MASK(10) = '1' then
@@ -193,8 +193,6 @@ begin
 	end process;
 	
 	ROM_SEL <= not ROMSEL_N and not DSP_SEL and not DP_SEL and not SRTC_SEL and not BSRAM_SEL and not OBC1_SEL and not NO_BSRAM_SEL;
-	
-
 	DSP_CS_N <= not DSP_SEL;
 
 	DSPn_BLOCK: if USE_DSPn = '1' generate
@@ -224,21 +222,21 @@ begin
 		CLK			=> MCLK,
 		RST_N			=> RST_N and MAP_OBC1_SEL,
 		ENABLE		=> ENABLE,
-		
+
 		CA				=> CA,
 		DI				=> DI,
 		CPURD_N		=> CPURD_N,
 		CPUWR_N		=> CPUWR_N,
-		
+
 		SYSCLKF_CE	=> SYSCLKF_CE,
-		
+
 		CS				=> OBC1_SEL,
-				
+
 		SRAM_A		=> OBC1_SRAM_A,
 		SRAM_DI  	=> BSRAM_Q,
 		SRAM_DO		=> OBC1_SRAM_DO
 	);
-	
+
 	SRTC : entity work.SRTC
 	port map(
 		CLK			=> MCLK,
@@ -249,12 +247,12 @@ begin
 		CS				=> SRTC_SEL,
 		CPURD_N		=> CPURD_N,
 		CPUWR_N		=> CPUWR_N,
-		
+
 		SYSCLKF_CE	=> SYSCLKF_CE,
-		
+
 		EXT_RTC		=> EXT_RTC
 	);
-	
+
 	ROM_RD <= (SYSCLKF_CE or SYSCLKR_CE) when rising_edge(MCLK);
 
 	ROM_ADDR <= CART_ADDR and ROM_MASK;
@@ -267,7 +265,7 @@ begin
 	BSRAM_OE_N <= CPURD_N;
 	BSRAM_WE_N <= CPUWR_N;
 	BSRAM_D    <= OBC1_SRAM_DO when OBC1_SEL = '1' else DI;
-	
+
 	process(MCLK, RST_N)
 	begin
 		if RST_N = '0' then
@@ -278,7 +276,7 @@ begin
 			end if;
 		end if;
 	end process;
-	
+
 	DO <= ROM_Q(7 downto 0) when ROM_SEL = '1' else
 			DSP_DO when DSP_SEL = '1' or DP_SEL = '1' else
 			SRTC_DO when SRTC_SEL = '1' else
