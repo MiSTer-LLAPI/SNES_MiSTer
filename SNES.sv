@@ -323,6 +323,7 @@ parameter CONF_STR = {
 	"P1oA,Force 256px,Off,On;",
 	"P1-;",
 	"P1OJK,Stereo Mix,None,25%,50%,100%;", 
+	"P1oCD,MSU-1 Audio Boost,No,2x,4x;",
 
 	"P2,Hardware;",
 	"P2-;",
@@ -897,7 +898,6 @@ video_mixer #(.LINE_LENGTH(520), .GAMMA(1)) video_mixer
 );
 
 ////////////////////////////  I/O PORTS  ////////////////////////////////
-
 wire       JOY_STRB;
 
 wire [1:0] JOY1_DO;
@@ -1321,8 +1321,8 @@ wire        msu_audio_req;
 wire        msu_audio_seek;
 wire [21:0] msu_audio_sector;
 
-wire [15:0] msu_audio_l;
-wire [15:0] msu_audio_r;
+wire [15:0] msu_l;
+wire [15:0] msu_r;
 
 msu_audio msu_audio
 (
@@ -1348,9 +1348,42 @@ msu_audio msu_audio
 	.audio_req(msu_audio_req),
 	.audio_seek(msu_audio_seek),
 
-	.audio_l(msu_audio_l),
-	.audio_r(msu_audio_r)
+	.audio_l(msu_l),
+	.audio_r(msu_r)
 );
+
+localparam [3:0] comp_f1 = 4;
+localparam [3:0] comp_a1 = 2;
+localparam       comp_x1 = ((32767 * (comp_f1 - 1)) / ((comp_f1 * comp_a1) - 1)) + 1; // +1 to make sure it won't overflow
+localparam       comp_b1 = comp_x1 * comp_a1;
+
+localparam [3:0] comp_f2 = 8;
+localparam [3:0] comp_a2 = 4;
+localparam       comp_x2 = ((32767 * (comp_f2 - 1)) / ((comp_f2 * comp_a2) - 1)) + 1; // +1 to make sure it won't overflow
+localparam       comp_b2 = comp_x2 * comp_a2;
+
+function [15:0] compr; input [15:0] inp;
+	reg [15:0] v, v1, v2;
+	begin
+		v  = inp[15] ? (~inp) + 1'd1 : inp;
+		v1 = (v < comp_x1[15:0]) ? (v * comp_a1) : (((v - comp_x1[15:0])/comp_f1) + comp_b1[15:0]);
+		v2 = (v < comp_x2[15:0]) ? (v * comp_a2) : (((v - comp_x2[15:0])/comp_f2) + comp_b2[15:0]);
+		v  = status[45] ? v2 : v1;
+		compr = inp[15] ? ~(v-1'd1) : v;
+	end
+endfunction
+
+wire [15:0] msu_audio_l;
+wire [15:0] msu_audio_r;
+
+always @(posedge clk_sys) begin
+	reg [15:0] cmp_l, cmp_r;
+	cmp_l <= compr(msu_l);
+	cmp_r <= compr(msu_r);
+	
+	msu_audio_l = status[45:44] ? cmp_l : msu_l;
+	msu_audio_r = status[45:44] ? cmp_r : msu_r;
+end
 
 wire [31:0] msu_data_addr;
 wire  [7:0] msu_data;
