@@ -1350,9 +1350,8 @@ always @(posedge clk_sys) begin
 	reg [16:0] mix_l, mix_r;
 	reg [16:0] main_gb_mix_l, main_gb_mix_r;
 
-	// Unsigned GB audio to signed before mixing with Main audio.
-	main_gb_mix_l = $signed({main_audio_l[15], main_audio_l}) + $signed({gb_audio_l[15],gb_audio_l});
-	main_gb_mix_r = $signed({main_audio_r[15], main_audio_r}) + $signed({gb_audio_r[15],gb_audio_r});
+	main_gb_mix_l = $signed({main_audio_l[15], main_audio_l}) + $signed({1'b0,gb_audio_l});
+	main_gb_mix_r = $signed({main_audio_r[15], main_audio_r}) + $signed({1'b0,gb_audio_r});
 
 	mix_l = $signed({main_gb_mix_l}) + $signed({msu_l[15], msu_l});
 	mix_r = $signed({main_gb_mix_r}) + $signed({msu_r[15], msu_r});
