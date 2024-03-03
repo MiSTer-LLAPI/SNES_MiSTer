@@ -17,7 +17,6 @@
 //  with this program; if not, write to the Free Software Foundation, Inc.,
 //  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 //============================================================================ 
-//LLAPI: llapi.sv needs to be in rtl folder and needs to be declared in file.qip (set_global_assignment -name SYSTEMVERILOG_FILE rtl/llapi.sv)
 
 module emu
 (
@@ -52,13 +51,14 @@ module emu
 	output        VGA_F1,
 	output [1:0]  VGA_SL,
 	output        VGA_SCALER, // Force VGA scaler
+	output        VGA_DISABLE, // analog out is off
 
 	input  [11:0] HDMI_WIDTH,
 	input  [11:0] HDMI_HEIGHT,
 	output        HDMI_FREEZE,
 
 `ifdef MISTER_FB
-	// Use framebuffer in DDRAM (USE_FB=1 in qsf)
+	// Use framebuffer in DDRAM
 	// FB_FORMAT:
 	//    [2:0] : 011=8bpp(palette) 100=16bpp 101=24bpp 110=32bpp
 	//    [3]   : 0=16bits 565 1=16bits 1555
@@ -183,10 +183,9 @@ assign AUDIO_MIX = status[20:19];
 assign LED_USER  = cart_download | spc_download | (status[23] & bk_pending);
 assign LED_DISK  = 0;
 assign LED_POWER = 0;
-//LLAPI: OSD combinaison
-assign BUTTONS   = osd_btn | llapi_osd;
-//LLAPI
+assign BUTTONS   = osd_btn;
 assign VGA_SCALER= 0;
+assign VGA_DISABLE = 0;
 assign HDMI_FREEZE = 0;
 
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
@@ -289,33 +288,32 @@ wire reset = RESET | buttons[1] | status[0] | cart_download | spc_download | bk_
 ////////////////////////////  HPS I/O  //////////////////////////////////
 
 // Status Bit Map:
-//             Upper                             Lower
 // 0         1         2         3          4         5         6
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXXX                  XX
+// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  XXXXXXXXXXXXXXX
 
 `include "build_id.v"
 parameter CONF_STR = {
 	"SNES;UART31250,MIDI;",
-    "FS0,SFCSMCBINBS ;",
-	 "FS1,SPC;",
-    "-;",
-    "OEF,Video Region,Auto,NTSC,PAL;",
-    "O13,ROM Header,Auto,No Header,LoROM,HiROM,ExHiROM;",
-    "-;",
-    "C,Cheats;",
-    "H2OO,Cheats Enabled,Yes,No;",
-    "-;",
-    "D0RC,Load Backup RAM;",
-    "D0RD,Save Backup RAM;",
-    "D0ON,Autosave,Off,On;",
-    "D0-;",
+	"FS0,SFCSMCBINBS ;",
+	"FS1,SPC;",
+	"-;",
+	"OEF,Video Region,Auto,NTSC,PAL;",
+	"O13,ROM Header,Auto,No Header,LoROM,HiROM,ExHiROM;",
+	"-;",
+	"C,Cheats;",
+	"H2OO,Cheats Enabled,Yes,No;",
+	"-;",
+	"D0RC,Load Backup RAM;",
+	"D0RD,Save Backup RAM;",
+	"D0ON,Autosave,Off,On;",
+	"D0-;",
 
-	 "P1,Audio & Video;",
-    "P1-;",
+	"P1,Audio & Video;",
+	"P1-;",
 	"P1o01,Aspect Ratio,Original,Full Screen,[ARC1],[ARC2];",
-    "P1O9B,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
+	"P1O9B,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
 	"P1-;",
 	"d5P1o7,Vertical Crop,Disabled,216p(5x);",
 	"d5P1o36,Crop Offset,0,2,4,8,10,12,-12,-10,-8,-6,-4,-2;",
@@ -326,33 +324,33 @@ parameter CONF_STR = {
 	"P1-;",
 	"P1OJK,Stereo Mix,None,25%,50%,100%;", 
 
-	 "P2,Hardware;",
-    "P2-;",
-    "P2OH,Multitap,Disabled,Port2;",
-    //LLAPI: OSD menu item. swapped NONE with LLAPI. To detect LLAPI, status[63] = 1.
-	//LLAPI: Always double check witht the bits map allocation table to avoid conflicts	
-	"oUV,Serial,OFF,SNAC,LLAPI;",
+	"P2,Input Options;",
 	"P2-;",
-	//LLAPI
-    "P2-;",
-    "P2OPQ,Super Scope,Disabled,Joy1,Joy2,Mouse;",
-    "D4P2OR,Super Scope Btn,Joy,Mouse;",
-    "D4P2OST,Cross,Small,Big,None;",
+	"P2O7,Swap Joysticks,No,Yes;",
+	"P2O8,SNAC,No,Yes;",
+	"P2-;",
+	"P2oB,Miracle Piano,No,Yes;",
+	"P2OH,Multitap,Disabled,Port2;",
+	"P2O56,Mouse,None,Port1,Port2;",
+	"P2-;",
+	"P2OPQ,Super Scope,Disabled,Joy1,Joy2,Mouse;",
+	"D4P2OR,Super Scope Btn,Joy,Mouse;",
+	"D4P2OST,Cross,Small,Big,None;",
 	"D4P2o2,Gun Type,Super Scope,Justifier;",
-    "P2-;",
-    "D1P2OI,SuperFX Speed,Normal,Turbo;",
-    "D3P2O4,CPU Speed,Normal,Turbo;",
-    "P2-;",
-    "P2OLM,Initial WRAM,9966(SNES2),00FF(SNES1),55(SD2SNES),FF;",
+	
+	"P3,Hardware;",
+	"P3-;",
+	"D1P3OI,SuperFX Speed,Normal,Turbo;",
+	"D1P3oE,SuperFX FastROM,Yes,No;",
+	"D3P3O4,CPU Speed,Normal,Turbo;",
+	"P3-;",
+	"P3OLM,Initial WRAM,9966(SNES2),00FF(SNES1),55(SD2SNES),FF;",
+	"P3oCD,Initial ARAM,9966(SNES2),00FF(SNES1),55(SD2SNES),FF;",
 
-    "-;",
-    "O56,Mouse,None,Port1,Port2;",
-	"oB,Miracle Piano,No,Yes;",
-    "O7,Swap Joysticks,No,Yes;",
-    "-;",
-    "R0,Reset;",
-    "J1,A(SS Fire),B(SS Cursor),X(SS TurboSw),Y(SS Pause),LT(SS Cursor),RT(SS Fire),Select,Start;",
-    "V,v",`BUILD_DATE
+	"-;",
+	"R0,Reset;",
+	"J1,A(SS Fire),B(SS Cursor),X(SS TurboSw),Y(SS Pause),LT(SS Cursor),RT(SS Fire),Select,Start;",
+	"V,v",`BUILD_DATE
 };
 
 wire  [1:0] buttons;
@@ -380,10 +378,6 @@ wire [11:0] joy0,joy1,joy2,joy3,joy4;
 wire [24:0] ps2_mouse;
 wire [10:0] ps2_key;
 
-//LLAPI: Distinguish hps_io (usb) josticks from llapi joysticks
-wire [11:0] joy_usb_0, joy_usb_1, joy_usb_2, joy_usb_3, joy_usb_4;
-//LLAPI
-
 wire  [7:0] joy0_x,joy0_y,joy1_x,joy1_y;
 
 wire [64:0] RTC;
@@ -401,17 +395,14 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 
 	.joystick_l_analog_0({joy0_y, joy0_x}),
 	.joystick_l_analog_1({joy1_y, joy1_x}),
-	//LLAPI : renamed hps_io (usb) joysticks
-	.joystick_0(joy_usb_0),
-	.joystick_1(joy_usb_1),
-	.joystick_2(joy_usb_2),
-	.joystick_3(joy_usb_3),
-	.joystick_4(joy_usb_4),
-	//LLAPI
-
+	.joystick_0(joy0),
+	.joystick_1(joy1),
+	.joystick_2(joy2),
+	.joystick_3(joy3),
+	.joystick_4(joy4),
 	.ps2_mouse(ps2_mouse),
 	.ps2_key(ps2_key),
-	
+
 	.status(status),
 	.status_menumask(status_menumask),
 	.status_in({status[63:5],1'b0,status[3:0]}),
@@ -435,7 +426,7 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 	.img_mounted(img_mounted),
 	.img_readonly(img_readonly),
 	.img_size(img_size),
-	
+
 	.RTC(RTC),
 
 	.gamma_bus(gamma_bus),
@@ -446,6 +437,7 @@ wire       GUN_BTN = status[27];
 wire [1:0] GUN_MODE = status[26:25];
 wire       GUN_TYPE = status[34];
 wire       GSU_TURBO = status[18];
+wire       GSU_FASTROM = ~status[46];
 wire       BLEND = ~status[16];
 wire [1:0] mouse_mode = status[6:5];
 wire       joy_swap = status[7] | piano;
@@ -460,12 +452,12 @@ reg new_vmode;
 always @(posedge clk_sys) begin
 	reg old_pal;
 	int to;
-	
+
 	if(~reset) begin
 		old_pal <= PAL;
 		if(old_pal != PAL) to <= 2000000;
 	end
-	
+
 	if(to) begin
 		to <= to - 1;
 		if(to == 1) new_vmode <= ~new_vmode;
@@ -568,6 +560,7 @@ main main
 
 	.GSU_ACTIVE(GSU_ACTIVE),
 	.GSU_TURBO(GSU_TURBO),
+	.GSU_FASTROM(GSU_FASTROM),
 
 	.ROM_TYPE(rom_type),
 	.ROM_MASK(rom_mask),
@@ -641,7 +634,7 @@ main main
 	.GG_AVAILABLE(gg_available),
 	
 	.SPC_MODE(spc_mode),
-	
+
 	.IO_ADDR(ioctl_addr[16:0]),
 	.IO_DAT(ioctl_dout),
 	.IO_WR(spc_download & ioctl_wr),
@@ -748,6 +741,16 @@ always @* begin
     endcase
 end
 
+reg [7:0] aram_fill_data;
+always @* begin
+    case(status[45:44])
+        0: aram_fill_data = (mem_fill_addr[8] ^ mem_fill_addr[2]) ? 8'h66 : 8'h99;
+        1: aram_fill_data = (mem_fill_addr[9] ^ mem_fill_addr[0]) ? 8'hFF : 8'h00;
+        2: aram_fill_data = 8'h55;
+        3: aram_fill_data = 8'hFF;
+    endcase
+end
+
 wire[23:0] ROM_ADDR;
 wire       ROM_OE_N;
 wire       ROM_WE_N;
@@ -836,7 +839,7 @@ dpram_dif #(16,8,15,16) aram
 
 	// clear the RAM on loading
 	.address_b(spc_download ? addr_download[15:1] : mem_fill_addr[15:1]),
-	.data_b(spc_download ? ioctl_dout : 16'h0000),
+	.data_b(spc_download ? ioctl_dout : {2{aram_fill_data}}),
 	.wren_b(spc_download ? ioctl_wr : clearing_ram)
 );
 
@@ -1032,195 +1035,60 @@ lightgun lightgun
 	.PORT_DO(LG_DO)
 );
 
+// 1 [oooo|ooo) 7 - 1:+5V  2:Clk  3:Strobe   4:D0  5:D1  6: I/O  7:Gnd
 
-// SNAC Indexes:
-// 0 = D+    = Latch
-// 1 = D-    = CLK
-// 2 = TX-   = P5
-// 3 = GND_d
-// 4 = RX+   = P6
-// 5 = RX-   = P4
+// Indexes:
+// IDXDIR   Function    USBPIN
+// 0  OUT   Strobe      D+
+// 1  OUT   Clk (P1)    D-
+// 2  IN    D1          TX-
+// 3  OUT   CLK (P2)    GND_d
+// 4  BI    I/O         RX+
+// 5  IN    P1D0        RX-
+// 6  IN    P2D0        TX+
 
-wire raw_serial = status[62];
+wire raw_serial = status[8];
+reg snac_p2 = 0;
 
-// LLAPI Indexes:
-// 0 = D+    = P1 Latch
-// 1 = D-    = P1 Data
-// 2 = TX-   = LLAPI Enable
-// 3 = GND_d = N/C
-// 4 = RX+   = P2 Latch
-// 5 = RX-   = P2 Data
+assign USER_OUT[2] = 1'b1;
+assign USER_OUT[5] = 1'b1;
+assign USER_OUT[6] = 1'b1;
 
+wire  [1:0] datajoy0_DI = snac_p2 ? {1'b1, USER_IN[6]} : JOY1_DO;
+wire  [1:0] datajoy1_DI = snac_p2 ? {USER_IN[2], USER_IN[6]} : JOY2_DO;
 
 // JOYX_DO[0] is P4, JOYX_DO[1] is P5
 wire [1:0] JOY1_DI;
 wire [1:0] JOY2_DI;
 wire JOY2_P6_DI;
 
-always_comb begin
-	USER_OUT= 6'b111111;
+always @(posedge clk_sys) begin
+	if (raw_serial) begin
+		if (~USER_IN[6])
+			snac_p2 <= 1;
+	end else begin
+		snac_p2 <= 0;
+	end
+end
 
+always_comb begin
 	if (raw_serial) begin
 		USER_OUT[0] = JOY_STRB;
 		USER_OUT[1] = joy_swap ? ~JOY2_CLK : ~JOY1_CLK;
-		USER_OUT[4] = joy_swap ? JOY2_P6 : JOY1_P6;
-		JOY1_DI = joy_swap ? JOY1_DO : {USER_IN[2], USER_IN[5]};
-		JOY2_DI = joy_swap ? {USER_IN[2], USER_IN[5]} : JOY2_DO;
-		JOY2_P6_DI = joy_swap ? USER_IN[4] : (LG_P6_out | !GUN_MODE);
-	//LLAPI: Connection to USER_OUT port
+		USER_OUT[3] = joy_swap ? ~JOY1_CLK : ~JOY2_CLK;
+		USER_OUT[4] = joy_swap ? JOY2_P6 : snac_p2 ? JOY2_P6 : JOY1_P6;
+		JOY1_DI = joy_swap ? datajoy0_DI : snac_p2 ? {1'b1, USER_IN[5]} : {USER_IN[2], USER_IN[5]};
+		JOY2_DI = joy_swap ? {USER_IN[2], USER_IN[5]} : datajoy1_DI;		
+		JOY2_P6_DI = joy_swap ? USER_IN[4] : snac_p2 ? USER_IN[4] : (LG_P6_out | !GUN_MODE);
 	end else begin
-		USER_OUT[0] = llapi_latch_o;
-		USER_OUT[1] = llapi_data_o;
-		USER_OUT[2] = ~(llapi_select & ~OSD_STATUS); // LED for Blister
-		USER_OUT[4] = llapi_latch_o2;
-		USER_OUT[5] = llapi_data_o2;
+		USER_OUT[0] = 1'b1;
+		USER_OUT[1] = 1'b1;
+		USER_OUT[3] = 1'b1;
+		USER_OUT[4] = 1'b1;
 		JOY1_DI = JOY1_DO;
 		JOY2_DI = JOY2_DO;
 		JOY2_P6_DI = (LG_P6_out | !GUN_MODE);
-		//LLAPI
 	end
-end
-
-//////////////////   LLAPI   ///////////////////
-
-wire [31:0] llapi_buttons, llapi_buttons2;
-wire [71:0] llapi_analog, llapi_analog2;
-wire [7:0]  llapi_type, llapi_type2;
-wire llapi_en, llapi_en2;
-
-wire llapi_select = status[63];
-
-wire llapi_latch_o, llapi_latch_o2, llapi_data_o, llapi_data_o2;
-
-//Port 1 conf
-LLAPI llapi
-(
-	.CLK_50M(CLK_50M),
-	.LLAPI_SYNC(JOY_STRB),
-	.IO_LATCH_IN(USER_IN[0]),
-	.IO_LATCH_OUT(llapi_latch_o),
-	.IO_DATA_IN(USER_IN[1]),
-	.IO_DATA_OUT(llapi_data_o),
-	.ENABLE(llapi_select & ~OSD_STATUS),
-	.LLAPI_BUTTONS(llapi_buttons),
-	.LLAPI_ANALOG(llapi_analog),
-	.LLAPI_TYPE(llapi_type),
-	.LLAPI_EN(llapi_en)
-);
-
-//Port 2 conf
-LLAPI llapi2
-(
-	.CLK_50M(CLK_50M),
-	.LLAPI_SYNC(JOY_STRB),
-	.IO_LATCH_IN(USER_IN[4]),
-	.IO_LATCH_OUT(llapi_latch_o2),
-	.IO_DATA_IN(USER_IN[5]),
-	.IO_DATA_OUT(llapi_data_o2),
-	.ENABLE(llapi_select & ~OSD_STATUS),
-	.LLAPI_BUTTONS(llapi_buttons2),
-	.LLAPI_ANALOG(llapi_analog2),
-	.LLAPI_TYPE(llapi_type2),
-	.LLAPI_EN(llapi_en2)
-);
-
-reg llapi_button_pressed, llapi_button_pressed2;
-
-always @(posedge CLK_50M) begin
-	if (reset) begin
-		llapi_button_pressed  <= 0;
-		llapi_button_pressed2 <= 0;
-	end else begin
-		if (|llapi_buttons)
-			llapi_button_pressed  <= 1;
-		if (|llapi_buttons2)
-			llapi_button_pressed2 <= 1;
-	end
-end
-
-// controller id is 0 if there is either an Atari controller or no controller
-// if id is 0, assume there is no controller until a button is pressed
-// also check for 255 and treat that as 'no controller' as well
-wire use_llapi  = llapi_en  && llapi_select && ((|llapi_type  && ~(&llapi_type))  || llapi_button_pressed);
-wire use_llapi2 = llapi_en2 && llapi_select && ((|llapi_type2 && ~(&llapi_type2)) || llapi_button_pressed2);
-
-//Controller string provided by core for reference (order is important)
-//Controller specific mapping based on type. More info here : https://docs.google.com/document/d/12XpxrmKYx_jgfEPyw-O2zex1kTQZZ-NSBdLO2RQPRzM/edit
-//llapi_Buttons id are HID id - 1
-
-//Port 1 mapping
-
-wire [11:0] joy_ll_a;
-always_comb begin
-	// map for saturn controller
-	// use L and R instead of top face buttons
-	// no select button so use Z
-	if (llapi_type == 3 || llapi_type == 8) begin
-		joy_ll_a = {
-			llapi_buttons[5], llapi_buttons[6], // Start Select
-			llapi_buttons[9] | llapi_buttons[7], llapi_buttons[8], // RT LT
-			llapi_buttons[2], llapi_buttons[3], llapi_buttons[0], llapi_buttons[1], // Y X B A
-			llapi_buttons[27], llapi_buttons[26], llapi_buttons[25], llapi_buttons[24] // d-pad
-		};
-	end else begin
-		joy_ll_a = {
-			llapi_buttons[5], llapi_buttons[4], // Start Select
-			llapi_buttons[7], llapi_buttons[6], // RT LT
-			llapi_buttons[2], llapi_buttons[3], llapi_buttons[0], llapi_buttons[1], // Y X B A
-			llapi_buttons[27], llapi_buttons[26], llapi_buttons[25], llapi_buttons[24] // d-pad
-		};
-	end
-end
-
-//Port 2 mapping
-
-wire [11:0] joy_ll_b;
-always_comb begin
-	// map for saturn controller
-	// use L and R instead of top face buttons
-	// no select button so use Z
-	if (llapi_type2 == 3 || llapi_type2 == 8) begin
-		joy_ll_b = {
-			llapi_buttons2[5],  llapi_buttons2[6], // Start Select
-			llapi_buttons2[9] | llapi_buttons2[7],  llapi_buttons2[8], // RT LT
-			llapi_buttons2[2],  llapi_buttons2[3],  llapi_buttons2[0],  llapi_buttons2[1], // Y X B A
-			llapi_buttons2[27], llapi_buttons2[26], llapi_buttons2[25], llapi_buttons2[24] // d-pad
-		};
-	end else begin
-		joy_ll_b = {
-			llapi_buttons2[5],  llapi_buttons2[4], // Start Select
-			llapi_buttons2[7],  llapi_buttons2[6], // RT LT
-			llapi_buttons2[2],  llapi_buttons2[3],  llapi_buttons2[0],  llapi_buttons2[1], // Y X B A
-			llapi_buttons2[27], llapi_buttons2[26], llapi_buttons2[25], llapi_buttons2[24] // d-pad
-		};
-	end
-end
-
-//Assign (DOWN + FIRST BUTTON) Combinaison to bring the OSD up - P1 and P1 ports.
-//TODO : Support long press detection
-wire llapi_osd = (llapi_buttons[26] && llapi_buttons[5] && llapi_buttons[0]) || (llapi_buttons2[26] && llapi_buttons2[5] && llapi_buttons2[0]);
-
-// if LLAPI is enabled, shift USB controllers to next available player slot
-always_comb begin
-	 if (use_llapi & use_llapi2) begin
-                joy0 = joy_ll_a;
-                joy1 = joy_ll_b;
-                joy2 = joy_usb_0;
-                joy3 = joy_usb_1;
-                joy4 = joy_usb_2;
-        end else if (use_llapi ^ use_llapi2) begin
-                joy0 = use_llapi  ? joy_ll_a : joy_usb_0;
-                joy1 = use_llapi2 ? joy_ll_b : joy_usb_0;
-                joy2 = joy_usb_1;
-                joy3 = joy_usb_2;
-                joy4 = joy_usb_3;
-        end else begin
-                joy0 = joy_usb_0;
-                joy1 = joy_usb_1;
-                joy2 = joy_usb_2;
-                joy3 = joy_usb_3;
-                joy4 = joy_usb_4;
-        end
 end
 
 /////////////////////////  STATE SAVE/LOAD  /////////////////////////////
@@ -1240,7 +1108,7 @@ reg old_downloading = 0;
 always @(posedge clk_sys) begin
 	old_downloading <= cart_download;
 	if(~old_downloading & cart_download) bk_ena <= 0;
-	
+
 	//Save file always mounted in the end of downloading state.
 	if(cart_download && img_mounted && !img_readonly) bk_ena <= |ram_mask;
 end
@@ -1258,7 +1126,7 @@ always @(posedge clk_sys) begin
 	old_ack  <= sd_ack;
 
 	if(~old_ack & sd_ack) {sd_rd, sd_wr} <= 0;
-	
+
 	if(!bk_state) begin
 		if((~old_load & bk_load) | (~old_save & bk_save)) begin
 			bk_state <= 1;
@@ -1287,7 +1155,7 @@ always @(posedge clk_sys) begin
 		end
 	end
 end
- 
+
 //debug
 `ifdef DEBUG_BUILD
 reg [4:0] DBG_BG_EN = '1;
@@ -1303,12 +1171,12 @@ always @(posedge clk_sys) begin
 
 	if((ps2_key[10] != old_state) && pressed) begin
 		casex(code)
-			'h005: begin DBG_BG_EN[0] <= ~DBG_BG_EN[0]; end 	// F1
-			'h006: begin DBG_BG_EN[1] <= ~DBG_BG_EN[1] ; end 	// F2
-			'h004: begin DBG_BG_EN[2] <= ~DBG_BG_EN[2] ; end 	// F3
-			'h00C: begin DBG_BG_EN[3] <= ~DBG_BG_EN[3] ; end 	// F4
-			'h003: begin DBG_BG_EN[4] <= ~DBG_BG_EN[4] ; end 	// F5
-			'h177: begin DBG_CPU_EN <= ~DBG_CPU_EN; end 	// Pause
+			'h005: begin DBG_BG_EN[0] <= ~DBG_BG_EN[0]; end // F1
+			'h006: begin DBG_BG_EN[1] <= ~DBG_BG_EN[1]; end // F2
+			'h004: begin DBG_BG_EN[2] <= ~DBG_BG_EN[2]; end // F3
+			'h00C: begin DBG_BG_EN[3] <= ~DBG_BG_EN[3]; end // F4
+			'h003: begin DBG_BG_EN[4] <= ~DBG_BG_EN[4]; end // F5
+			'h177: begin DBG_CPU_EN   <= ~DBG_CPU_EN;   end // Pause
 		endcase
 	end
 end
