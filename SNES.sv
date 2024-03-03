@@ -17,6 +17,7 @@
 //  with this program; if not, write to the Free Software Foundation, Inc.,
 //  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 //============================================================================ 
+//LLAPI: llapi.sv needs to be in rtl folder and needs to be declared in file.qip (set_global_assignment -name SYSTEMVERILOG_FILE rtl/llapi.sv)																																			  
 
 module emu
 (
@@ -183,7 +184,9 @@ assign AUDIO_MIX = status[20:19];
 assign LED_USER  = cart_download | spc_download | (status[23] & bk_pending);
 assign LED_DISK  = 0;
 assign LED_POWER = 0;
-assign BUTTONS   = osd_btn;
+//LLAPI: OSD combinaison
+assign BUTTONS   = osd_btn | llapi_osd;
+//LLAPI	   
 assign VGA_SCALER= 0;
 assign VGA_DISABLE = 0;
 assign HDMI_FREEZE = 0;
@@ -287,11 +290,13 @@ wire reset = RESET | buttons[1] | status[0] | cart_download | spc_download | bk_
 
 ////////////////////////////  HPS I/O  //////////////////////////////////
 
+//LLAPI : Added status bit 63
 // Status Bit Map:
 // 0         1         2         3          4         5         6
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  XXXXXXXXXXXXXXX
+// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  XXXXXXXXXXXXXXX                X
+//LLAPI
 
 `include "build_id.v"
 parameter CONF_STR = {
@@ -302,6 +307,11 @@ parameter CONF_STR = {
 	"OEF,Video Region,Auto,NTSC,PAL;",
 	"O13,ROM Header,Auto,No Header,LoROM,HiROM,ExHiROM;",
 	"-;",
+	//LLAPI: OSD menu item. swapped NONE with LLAPI. To detect LLAPI, status[63] = 0.
+	//LLAPI: Always double check witht the bits map allocation table to avoid conflicts	
+	"O[63],LLAPI on USER I/O port,ON,OFF;",
+	"-;",
+	//LLAPI
 	"C,Cheats;",
 	"H2OO,Cheats Enabled,Yes,No;",
 	"-;",
@@ -327,8 +337,10 @@ parameter CONF_STR = {
 	"P2,Input Options;",
 	"P2-;",
 	"P2O7,Swap Joysticks,No,Yes;",
-	"P2O8,SNAC,No,Yes;",
-	"P2-;",
+	//LLAPI	- Disable SNAC																			 
+	//"P2O8,SNAC,No,Yes;",
+	//"P2-;",
+	//LLAPI	
 	"P2oB,Miracle Piano,No,Yes;",
 	"P2OH,Multitap,Disabled,Port2;",
 	"P2O56,Mouse,None,Port1,Port2;",
@@ -378,6 +390,9 @@ wire [11:0] joy0,joy1,joy2,joy3,joy4;
 wire [24:0] ps2_mouse;
 wire [10:0] ps2_key;
 
+//LLAPI: Distinguish hps_io (usb) josticks from llapi joysticks
+wire [11:0] joy_usb_0, joy_usb_1, joy_usb_2, joy_usb_3, joy_usb_4;
+//LLAPI															   
 wire  [7:0] joy0_x,joy0_y,joy1_x,joy1_y;
 
 wire [64:0] RTC;
@@ -395,11 +410,19 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 
 	.joystick_l_analog_0({joy0_y, joy0_x}),
 	.joystick_l_analog_1({joy1_y, joy1_x}),
-	.joystick_0(joy0),
-	.joystick_1(joy1),
-	.joystick_2(joy2),
-	.joystick_3(joy3),
-	.joystick_4(joy4),
+	//LLAPI : renamed hps_io (usb) joysticks
+	//.joystick_0(joy0),
+	//.joystick_1(joy1),
+	//.joystick_2(joy2),
+	//.joystick_3(joy3),
+	//.joystick_4(joy4),
+     //LLAPI : renamed hps_io (usb) joysticks
+	.joystick_0(joy_usb_0),
+	.joystick_1(joy_usb_1),
+	.joystick_2(joy_usb_2),
+	.joystick_3(joy_usb_3),
+	.joystick_4(joy_usb_4),
+	//LLAPI
 	.ps2_mouse(ps2_mouse),
 	.ps2_key(ps2_key),
 
@@ -970,9 +993,9 @@ ioport port1
 	.PORT_CLK(JOY1_CLK),
 	.PORT_P6(JOY1_P6),
 	.PORT_DO(JOY1_DO_t),
-
-	.JOYSTICK1((joy_swap ^ raw_serial) ? joy1 : joy0),
-
+	//LLAPI
+	.JOYSTICK1((joy_swap) ? joy1 : joy0),
+	//LLAPI
 	.MOUSE(ps2_mouse),
 	.MOUSE_EN(mouse_mode[0])
 );
@@ -990,8 +1013,9 @@ ioport port2
 	.PORT_CLK(JOY2_CLK),
 	.PORT_P6(JOY2_P6),
 	.PORT_DO(JOY2_DO),
-
-	.JOYSTICK1((joy_swap ^ raw_serial) ? joy0 : joy1),
+	//LLAPI
+	.JOYSTICK1((joy_swap) ? joy0 : joy1),
+	//LLAPI
 	.JOYSTICK2(joy2),
 	.JOYSTICK3(joy3),
 	.JOYSTICK4(joy4),
@@ -1046,22 +1070,25 @@ lightgun lightgun
 // 4  BI    I/O         RX+
 // 5  IN    P1D0        RX-
 // 6  IN    P2D0        TX+
+//LLAPI : Disable SNAC
 
-wire raw_serial = status[8];
-reg snac_p2 = 0;
+//wire raw_serial = status[8];
+//reg snac_p2 = 0;
 
-assign USER_OUT[2] = 1'b1;
-assign USER_OUT[5] = 1'b1;
-assign USER_OUT[6] = 1'b1;
+//assign USER_OUT[2] = 1'b1;
+//assign USER_OUT[5] = 1'b1;
+//assign USER_OUT[6] = 1'b1;
 
-wire  [1:0] datajoy0_DI = snac_p2 ? {1'b1, USER_IN[6]} : JOY1_DO;
-wire  [1:0] datajoy1_DI = snac_p2 ? {USER_IN[2], USER_IN[6]} : JOY2_DO;
+wire  [1:0] datajoy0_DI = JOY1_DO;
+wire  [1:0] datajoy1_DI = JOY2_DO;
 
 // JOYX_DO[0] is P4, JOYX_DO[1] is P5
-wire [1:0] JOY1_DI;
-wire [1:0] JOY2_DI;
-wire JOY2_P6_DI;
+wire [1:0] JOY1_DI = JOY1_DO;
+wire [1:0] JOY2_DI = JOY2_DO;
+wire JOY2_P6_DI = (LG_P6_out | !GUN_MODE);
 
+
+/*
 always @(posedge clk_sys) begin
 	if (raw_serial) begin
 		if (~USER_IN[6])
@@ -1090,7 +1117,174 @@ always_comb begin
 		JOY2_P6_DI = (LG_P6_out | !GUN_MODE);
 	end
 end
+*/
+//LLAPI
 
+
+//////////////////   LLAPI   ///////////////////
+
+// LLAPI Indexes:
+// 0 = D+    = P1 Latch
+// 1 = D-    = P1 Data
+// 2 = TX-   = LLAPI Enable
+// 3 = GND_d = N/C
+// 4 = RX+   = P2 Latch
+// 5 = RX-   = P2 Data
+
+
+wire [31:0] llapi_buttons, llapi_buttons2;
+wire [71:0] llapi_analog, llapi_analog2;
+wire [7:0]  llapi_type, llapi_type2;
+wire llapi_en, llapi_en2;
+
+wire llapi_select = ~status[63];
+
+wire llapi_latch_o, llapi_latch_o2, llapi_data_o, llapi_data_o2;
+
+always_comb begin
+	USER_OUT= 6'b111111;
+	if (llapi_select) begin
+		USER_OUT[0] = llapi_latch_o;
+		USER_OUT[1] = llapi_data_o;
+		USER_OUT[2] = ~(llapi_select & ~OSD_STATUS); // LED for Blister
+		USER_OUT[4] = llapi_latch_o2;
+		USER_OUT[5] = llapi_data_o2;
+	end
+end
+
+//Port 1 conf
+LLAPI llapi
+(
+	.CLK_50M(CLK_50M),
+	.LLAPI_SYNC(JOY_STRB),
+	.IO_LATCH_IN(USER_IN[0]),
+	.IO_LATCH_OUT(llapi_latch_o),
+	.IO_DATA_IN(USER_IN[1]),
+	.IO_DATA_OUT(llapi_data_o),
+	.ENABLE(llapi_select & ~OSD_STATUS),
+	.LLAPI_BUTTONS(llapi_buttons),
+	.LLAPI_ANALOG(llapi_analog),
+	.LLAPI_TYPE(llapi_type),
+	.LLAPI_EN(llapi_en)
+);
+
+//Port 2 conf
+LLAPI llapi2
+(
+	.CLK_50M(CLK_50M),
+	.LLAPI_SYNC(JOY_STRB),
+	.IO_LATCH_IN(USER_IN[4]),
+	.IO_LATCH_OUT(llapi_latch_o2),
+	.IO_DATA_IN(USER_IN[5]),
+	.IO_DATA_OUT(llapi_data_o2),
+	.ENABLE(llapi_select & ~OSD_STATUS),
+	.LLAPI_BUTTONS(llapi_buttons2),
+	.LLAPI_ANALOG(llapi_analog2),
+	.LLAPI_TYPE(llapi_type2),
+	.LLAPI_EN(llapi_en2)
+);
+
+reg llapi_button_pressed, llapi_button_pressed2;
+
+always @(posedge CLK_50M) begin
+	if (reset) begin
+		llapi_button_pressed  <= 0;
+		llapi_button_pressed2 <= 0;
+	end else begin
+		if (|llapi_buttons)
+			llapi_button_pressed  <= 1;
+		if (|llapi_buttons2)
+			llapi_button_pressed2 <= 1;
+	end
+end
+
+// controller id is 0 if there is either an Atari controller or no controller
+// if id is 0, assume there is no controller until a button is pressed
+// also check for 255 and treat that as 'no controller' as well
+wire use_llapi  = llapi_en  && llapi_select && ((|llapi_type  && ~(&llapi_type))  || llapi_button_pressed);
+wire use_llapi2 = llapi_en2 && llapi_select && ((|llapi_type2 && ~(&llapi_type2)) || llapi_button_pressed2);
+
+//Controller string provided by core for reference (order is important)
+//Controller specific mapping based on type. More info here : https://docs.google.com/document/d/12XpxrmKYx_jgfEPyw-O2zex1kTQZZ-NSBdLO2RQPRzM/edit
+//llapi_Buttons id are HID id - 1
+
+//Port 1 mapping
+
+wire [11:0] joy_ll_a;
+always_comb begin
+	// map for saturn controller
+	// use L and R instead of top face buttons
+	// no select button so use Z
+	if (llapi_type == 3 || llapi_type == 8) begin
+		joy_ll_a = {
+			llapi_buttons[5], llapi_buttons[6], // Start Select
+			llapi_buttons[9] | llapi_buttons[7], llapi_buttons[8], // RT LT
+			llapi_buttons[2], llapi_buttons[3], llapi_buttons[0], llapi_buttons[1], // Y X B A
+			llapi_buttons[27], llapi_buttons[26], llapi_buttons[25], llapi_buttons[24] // d-pad
+		};
+	end else begin
+		joy_ll_a = {
+			llapi_buttons[5], llapi_buttons[4], // Start Select
+			llapi_buttons[7], llapi_buttons[6], // RT LT
+			llapi_buttons[2], llapi_buttons[3], llapi_buttons[0], llapi_buttons[1], // Y X B A
+			llapi_buttons[27], llapi_buttons[26], llapi_buttons[25], llapi_buttons[24] // d-pad
+		};
+	end
+end
+
+//Port 2 mapping
+
+wire [11:0] joy_ll_b;
+always_comb begin
+	// map for saturn controller
+	// use L and R instead of top face buttons
+	// no select button so use Z
+	if (llapi_type2 == 3 || llapi_type2 == 8) begin
+		joy_ll_b = {
+			llapi_buttons2[5],  llapi_buttons2[6], // Start Select
+			llapi_buttons2[9] | llapi_buttons2[7],  llapi_buttons2[8], // RT LT
+			llapi_buttons2[2],  llapi_buttons2[3],  llapi_buttons2[0],  llapi_buttons2[1], // Y X B A
+			llapi_buttons2[27], llapi_buttons2[26], llapi_buttons2[25], llapi_buttons2[24] // d-pad
+		};
+	end else begin
+		joy_ll_b = {
+			llapi_buttons2[5],  llapi_buttons2[4], // Start Select
+			llapi_buttons2[7],  llapi_buttons2[6], // RT LT
+			llapi_buttons2[2],  llapi_buttons2[3],  llapi_buttons2[0],  llapi_buttons2[1], // Y X B A
+			llapi_buttons2[27], llapi_buttons2[26], llapi_buttons2[25], llapi_buttons2[24] // d-pad
+		};
+	end
+end
+
+//Assign (DOWN + START + FIRST BUTTON) Combinaison to bring the OSD up - P1 and P2 ports.
+
+wire llapi_osd = (llapi_buttons[26] && llapi_buttons[5] && llapi_buttons[0]) || (llapi_buttons2[26] && llapi_buttons2[5] && llapi_buttons2[0]);
+
+// if LLAPI is enabled, shift USB controllers to next available player slot
+always_comb begin
+	 if (use_llapi & use_llapi2) begin
+                joy0 = joy_ll_a;
+                joy1 = joy_ll_b;
+                joy2 = joy_usb_0;
+                joy3 = joy_usb_1;
+                joy4 = joy_usb_2;
+        end else if (use_llapi ^ use_llapi2) begin
+                joy0 = use_llapi  ? joy_ll_a : joy_usb_0;
+                joy1 = use_llapi2 ? joy_ll_b : joy_usb_0;
+                joy2 = joy_usb_1;
+                joy3 = joy_usb_2;
+                joy4 = joy_usb_3;
+        end else begin
+                joy0 = joy_usb_0;
+                joy1 = joy_usb_1;
+                joy2 = joy_usb_2;
+                joy3 = joy_usb_3;
+                joy4 = joy_usb_4;
+        end
+end
+
+
+//////////////////   END LLAPI   ///////////////////												
 /////////////////////////  STATE SAVE/LOAD  /////////////////////////////
 
 wire bk_save_write = ~BSRAM_CE_N & ~BSRAM_WE_N;
