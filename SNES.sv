@@ -290,13 +290,11 @@ wire reset = RESET | buttons[1] | status[0] | cart_download | spc_download | bk_
 
 ////////////////////////////  HPS I/O  //////////////////////////////////
 
-//LLAPI : Added status bit 63
 // Status Bit Map:
 // 0         1         2         3          4         5         6
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  XXXXXXXXXXXXXXX                X
-//LLAPI
+// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  XXXXXXXXXXXXXXX                
 
 `include "build_id.v"
 parameter CONF_STR = {
@@ -307,11 +305,12 @@ parameter CONF_STR = {
 	"OEF,Video Region,Auto,NTSC,PAL;",
 	"O13,ROM Header,Auto,No Header,LoROM,HiROM,ExHiROM;",
 	"-;",
-	//LLAPI: OSD menu item. swapped NONE with LLAPI. To detect LLAPI, status[63] = 0.
-	//LLAPI: Always double check witht the bits map allocation table to avoid conflicts	
-	"O[63],LLAPI on USER I/O port,ON,OFF;",
+	//LLAPI: OSD menu item
+	//LLAPI Always ON
+	"-,<< LLAPI enabled >>;",
+	"-,<< Use USER I/O port >>;",
 	"-;",
-	//LLAPI
+	//END LLAPI	
 	"C,Cheats;",
 	"H2OO,Cheats Enabled,Yes,No;",
 	"-;",
@@ -1137,7 +1136,7 @@ wire [71:0] llapi_analog, llapi_analog2;
 wire [7:0]  llapi_type, llapi_type2;
 wire llapi_en, llapi_en2;
 
-wire llapi_select = ~status[63];
+wire llapi_select = 1'b1;
 
 wire llapi_latch_o, llapi_latch_o2, llapi_data_o, llapi_data_o2;
 
