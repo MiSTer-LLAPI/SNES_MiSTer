@@ -51,14 +51,13 @@ module emu
 	output        VGA_F1,
 	output [1:0]  VGA_SL,
 	output        VGA_SCALER, // Force VGA scaler
-	output        VGA_DISABLE, // analog out is off
 
 	input  [11:0] HDMI_WIDTH,
 	input  [11:0] HDMI_HEIGHT,
 	output        HDMI_FREEZE,
 
 `ifdef MISTER_FB
-	// Use framebuffer in DDRAM
+	// Use framebuffer in DDRAM (USE_FB=1 in qsf)
 	// FB_FORMAT:
 	//    [2:0] : 011=8bpp(palette) 100=16bpp 101=24bpp 110=32bpp
 	//    [3]   : 0=16bits 565 1=16bits 1555
@@ -188,7 +187,6 @@ assign LED_POWER = 0;
 assign BUTTONS   = osd_btn | llapi_osd;
 //LLAPI
 assign VGA_SCALER= 0;
-assign VGA_DISABLE = 0;
 assign HDMI_FREEZE = 0;
 
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
@@ -295,7 +293,7 @@ wire reset = RESET | buttons[1] | status[0] | cart_download | gb_cart_download |
 // 0         1         2         3          4         5         6
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  XXXXXXXXXXXXXXX
+// X  XXXXX XXXXXX  X XX  XX     XX XXXXXXXXXXX
 
 `include "build_id.v"
 parameter CONF_STR = {
@@ -326,30 +324,17 @@ parameter CONF_STR = {
 	"P1-;",
 	"P1OJK,Stereo Mix,None,25%,50%,100%;", 
 
-	"P2,Input Options;",
+	"P2,Hardware;",
 	"P2-;",
-	"P2O7,Swap Joysticks,No,Yes;",
-	//LLAPI Disable SNAC
-	//"P2O8,SNAC,No,Yes;",
-	"P2-;",
-	"P2oB,Miracle Piano,No,Yes;",
 	"P2OH,Multitap,Disabled,Port2;",
-	"P2O56,Mouse,None,Port1,Port2;",
+	//LLAPI: OSD menu item
+	"P2O34,Serial,OFF,SNAC SNES,SNAC GB,LLAPI;",
+	//LLAPI
 	"P2-;",
-	"P2OPQ,Super Scope,Disabled,Joy1,Joy2,Mouse;",
-	"D4P2OR,Super Scope Btn,Joy,Mouse;",
-	"D4P2OST,Cross,Small,Big,None;",
-	"D4P2o2,Gun Type,Super Scope,Justifier;",
-	
-	"P3,Hardware;",
-	"P3-;",
-	"D1P3OI,SuperFX Speed,Normal,Turbo;",
-	"D1P3oE,SuperFX FastROM,Yes,No;",
-	"D3P3O4,CPU Speed,Normal,Turbo;",
-	"P3-;",
-	"P3OLM,Initial WRAM,9966(SNES2),00FF(SNES1),55(SD2SNES),FF;",
-	"P3oCD,Initial ARAM,9966(SNES2),00FF(SNES1),55(SD2SNES),FF;",
 
+	"-;",
+	"O56,Mouse,None,Port1,Port2;",
+	"O7,Swap Joysticks,No,Yes;",
 	"-;",
 	"R0,Reset;",
 	"J1,A,B,X,Y,L,R,Select,Start;",
@@ -437,12 +422,6 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 	.EXT_BUS(EXT_BUS)
 );
 
-wire       GUN_BTN = status[27];
-wire [1:0] GUN_MODE = status[26:25];
-wire       GUN_TYPE = status[34];
-wire       GSU_TURBO = status[18];
-wire       GSU_FASTROM = ~status[46];
-wire       BLEND = ~status[16];
 wire [1:0] mouse_mode = status[6:5];
 wire       joy_swap = status[7];
 wire [1:0] sgb_speed = status[31:30];
@@ -509,14 +488,7 @@ main main
 	.MCLK(clk_sys), // 21.47727 / 21.28137
 	.ACLK(clk_sys),
 
-	.GSU_ACTIVE(GSU_ACTIVE),
-	.GSU_TURBO(GSU_TURBO),
-	.GSU_FASTROM(GSU_FASTROM),
-
-	.ROM_TYPE(rom_type),
-	.ROM_MASK(rom_mask),
-	.RAM_MASK(ram_mask),
-
+	.ROM_MASK({is_sgb2_bios,~18'd0} ),
 	.PAL(PAL),
 	.BLEND(0),
 
@@ -720,16 +692,6 @@ always @* begin
     endcase
 end
 
-reg [7:0] aram_fill_data;
-always @* begin
-    case(status[45:44])
-        0: aram_fill_data = (mem_fill_addr[8] ^ mem_fill_addr[2]) ? 8'h66 : 8'h99;
-        1: aram_fill_data = (mem_fill_addr[9] ^ mem_fill_addr[0]) ? 8'hFF : 8'h00;
-        2: aram_fill_data = 8'h55;
-        3: aram_fill_data = 8'hFF;
-    endcase
-end
-
 wire[23:0] ROM_ADDR;
 wire       ROM_OE_N;
 wire       ROM_WE_N;
@@ -848,7 +810,7 @@ dpram_dif #(16,8,15,16) aram
 
 	// clear the RAM on loading
 	.address_b(spc_download ? addr_download[15:1] : mem_fill_addr[15:1]),
-	.data_b(spc_download ? ioctl_dout : {2{aram_fill_data}}),
+	.data_b(spc_download ? ioctl_dout : 16'h0000),
 	.wren_b(spc_download ? ioctl_wr : clearing_ram)
 );
 
@@ -971,47 +933,15 @@ ioport port2
 	.MOUSE_EN(mouse_mode[1])
 );
 
-lightgun lightgun
-(
-	.CLK(clk_sys),
-	.RESET(reset),
 
-	.MOUSE(ps2_mouse),
-	.MOUSE_XY(&GUN_MODE),
+// SNAC Indexes:
+// 0 = D+    = Latch
+// 1 = D-    = CLK
+// 2 = TX-   = P5
+// 3 = GND_d
+// 4 = RX+   = P6
+// 5 = RX-   = P4
 
-	.JOY_X(GUN_MODE[0] ? joy0_x : joy1_x),
-	.JOY_Y(GUN_MODE[0] ? joy0_y : joy1_y),
-
-	.F(GUN_BTN ? ps2_mouse[0] : ((GUN_MODE[0]&(joy0[4]|joy0[9]) | (GUN_MODE[1]&(joy1[4]|joy1[9]))))),
-	.C(GUN_BTN ? ps2_mouse[1] : ((GUN_MODE[0]&(joy0[5]|joy0[8]) | (GUN_MODE[1]&(joy1[5]|joy0[8]))))),
-	.T(LG_T), // always from joysticks
-	.P(ps2_mouse[2] | ((GUN_MODE[0]&joy0[7]) | (GUN_MODE[1]&joy1[7]))), // always from joysticks and mouse
-
-	.HDE(~HBlank),
-	.VDE(~VBlank),
-	.CLKPIX(DOTCLK),
-	
-	.TARGET(LG_TARGET),
-	.SIZE(status[28]),
-	.GUN_TYPE(GUN_TYPE),
-
-	.PORT_LATCH(JOY_STRB),
-	.PORT_CLK(JOY2_CLK),
-	.PORT_P6(LG_P6_out),
-	.PORT_DO(LG_DO)
-);
-
-// 1 [oooo|ooo) 7 - 1:+5V  2:Clk  3:Strobe   4:D0  5:D1  6: I/O  7:Gnd
-
-// Indexes:
-// IDXDIR   Function    USBPIN
-// 0  OUT   Strobe      D+
-// 1  OUT   Clk (P1)    D-
-// 2  IN    D1          TX-
-// 3  OUT   CLK (P2)    GND_d
-// 4  BI    I/O         RX+
-// 5  IN    P1D0        RX-
-// 6  IN    P2D0        TX+
 // LLAPI Indexes:
 // 0 = D+    = P1 Latch
 // 1 = D-    = P1 Data
@@ -1020,30 +950,18 @@ lightgun lightgun
 // 4 = RX+   = P2 Latch
 // 5 = RX-   = P2 Data
 
+wire gb_sc_int_clock;
+wire gb_ser_data_in;
+wire gb_ser_data_out;
+wire gb_ser_clk_in;
+wire gb_ser_clk_out;
 
-wire raw_serial = status[8];
-reg snac_p2 = 0;
-
-assign USER_OUT[2] = 1'b1;
-assign USER_OUT[5] = 1'b1;
-assign USER_OUT[6] = 1'b1;
-
-wire  [1:0] datajoy0_DI = snac_p2 ? {1'b1, USER_IN[6]} : JOY1_DO;
-wire  [1:0] datajoy1_DI = snac_p2 ? {USER_IN[2], USER_IN[6]} : JOY2_DO;
+wire [1:0] raw_serial = status[4:3];
 
 // JOYX_DO[0] is P4, JOYX_DO[1] is P5
 wire [1:0] JOY1_DI;
 wire [1:0] JOY2_DI;
 wire JOY2_P6_DI;
-
-always @(posedge clk_sys) begin
-	if (raw_serial) begin
-		if (~USER_IN[6])
-			snac_p2 <= 1;
-	end else begin
-		snac_p2 <= 0;
-	end
-end
 
 always_comb begin
 	gb_ser_data_in = 1'b1;
@@ -1079,7 +997,7 @@ always_comb begin
                 USER_OUT[5] = llapi_data_o2;
                 JOY1_DI = JOY1_DO;
                 JOY2_DI = JOY2_DO;
-    //LLAPI
+                //LLAPI
 	end
 end
 
