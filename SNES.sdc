@@ -14,24 +14,28 @@ set_clock_groups -asynchronous -group [get_clocks { GSU_CACHE_CLK CX4_MEM_CLK }]
 
 set_max_delay 23 -from [get_registers { emu|hps_io|* \
 													 emu|main|* \
+													 emu|bsram|* \
 													 emu|rom_mask[*] \
 													 emu|rom_type[*] }] \
-					  -to   [get_registers { emu|sdram|a[*] \
-													 emu|sdram|ram_req* \
-													 emu|sdram|we* \
-													 emu|sdram|state[*] \
-													 emu|sdram|old_* \
-													 emu|sdram|busy* \
+					  -to   [get_registers { emu|sdram|addr[*][*] \
+					                         emu|sdram|din[*][*]* \
+													 emu|sdram|rfs* \
+													 emu|sdram|write[*] \
+													 emu|sdram|read[*] \
+													 emu|sdram|st_num[*]* \
+													 emu|sdram|state[1]* \
 													 emu|sdram|SDRAM_nCAS \
+													 emu|sdram|SDRAM_nRAS \
+													 emu|sdram|SDRAM_nWE \
+													 emu|sdram|SDRAM_DQ[*]* \
 													 emu|sdram|SDRAM_A[*] \
-													 emu|sdram|SDRAM_BA[*] }] 
+													 emu|sdram|SDRAM_BA[*]}] 
 
-set_max_delay 23 -from [get_registers { emu|sdram|* }] \
+set_max_delay 23 -from [get_registers { emu|sdram|*}] \
 					  -to   [get_registers { emu|main|* \
 													 emu|bsram|* \
-													 emu|wram|* \
 													 emu|vram*|* }] 
 
-set_false_path -to [get_registers { emu|sdram|ds emu|sdram|data[*]}]
+#set_false_path -to [get_registers { emu|sdram|word[*] }]
 
 set_false_path -from {emu|en216p}
