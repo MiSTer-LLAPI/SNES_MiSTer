@@ -1269,12 +1269,27 @@ always_comb begin
                 joy2 = joy_usb_1;
                 joy3 = joy_usb_2;
                 joy4 = joy_usb_3;
-        end else begin
-                joy0 = joy_ll_a;
+				
+		end else if (use_llapi & ~use_llapi2)  begin
+               	joy0 = joy_ll_a;
+                joy1 = joy_usb_0;
+                joy2 = joy_usb_1;
+                joy3 = joy_usb_2;
+                joy4 = joy_usb_3;
+				
+		end else if (use_llapi & use_llapi2)  begin
+               	joy0 = joy_ll_a;
                 joy1 = joy_ll_b;
                 joy2 = joy_usb_0;
                 joy3 = joy_usb_1;
                 joy4 = joy_usb_2;
+				
+        end else begin
+                joy0 = 0;
+                joy1 = 0;
+                joy2 = 0;
+                joy3 = 0;
+                joy4 = 0;
 		end
 end
 
