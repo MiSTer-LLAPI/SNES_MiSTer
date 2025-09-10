@@ -412,6 +412,7 @@ wire  [7:0] ioctl_index;
 wire [12:0] joy0,joy1,joy2,joy3,joy4;
 wire [24:0] ps2_mouse;
 wire [10:0] ps2_key;
+wire [15:0] joystick1_rumble;
 
 //LLAPI: Distinguish hps_io (usb) josticks from llapi joysticks
 wire [11:0] joy_usb_0, joy_usb_1, joy_usb_2, joy_usb_3, joy_usb_4;
@@ -433,13 +434,16 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 
 	.joystick_l_analog_0({joy0_y, joy0_x}),
 	.joystick_l_analog_1({joy1_y, joy1_x}),
+
      //LLAPI : renamed hps_io (usb) joysticks
 	.joystick_0(joy_usb_0),
 	.joystick_1(joy_usb_1),
 	.joystick_2(joy_usb_2),
 	.joystick_3(joy_usb_3),
 	.joystick_4(joy_usb_4),
+	.joystick_0_rumble(status[8] ? 16'h0000 : joystick1_rumble), 
 	//LLAPI
+
 	.ps2_mouse(ps2_mouse),
 	.ps2_key(ps2_key),
 
@@ -858,6 +862,17 @@ wire[23:0] addr_download = ssbin_download ? ssbin_addr_download : cart_addr_down
 
 wire       sdram_download = cart_download | ssbin_download;
 
+reg [23:0] sdram_download_addr;
+reg [15:0] sdram_download_data;
+reg        sdram_download_wr;
+reg        sdram_download_en;
+always @(posedge clk_mem) begin
+	sdram_download_addr <= addr_download;
+	sdram_download_data <= ioctl_dout;
+	sdram_download_wr <= ioctl_wr;
+	sdram_download_en <= sdram_download;
+end
+
 reg READ_PULSE;
 always @(posedge clk_sys)
 	READ_PULSE <= SNES_SYSCLKR_CE;
@@ -880,12 +895,12 @@ sdram sdram
 	.init(0), //~clock_locked),
 	.clk(clk_mem),
 	
-	.addr0(sdram_download ? addr_download : ROM_ADDR),
-	.din0(sdram_download ? ioctl_dout : ROM_D),
+	.addr0(sdram_download_en ? sdram_download_addr : ROM_ADDR),
+	.din0(sdram_download_en ? sdram_download_data : ROM_D),
 	.dout0(ROM_Q),
-	.rd0(~sdram_download & (RESET_N ? ~ROM_OE_N : RFSH)),
-	.wr0(sdram_download ? ioctl_wr : ~ROM_WE_N),
-	.word0(sdram_download | ROM_WORD),
+	.rd0(~sdram_download_en & (RESET_N ? ~ROM_OE_N : RFSH)),
+	.wr0(sdram_download_en ? sdram_download_wr : ~ROM_WE_N),
+	.word0(sdram_download_en | ROM_WORD),
 	
 	.addr1(clearing_ram ? {7'b0000000,mem_fill_addr} : {7'b0000000,WRAM_ADDR}),
 	.din1(clearing_ram ? {8'h00,wram_fill_data} : {8'h00,WRAM_D}),
@@ -1075,9 +1090,12 @@ ioport port1
 	.PORT_CLK(JOY1_CLK),
 	.PORT_P6(JOY1_P6),
 	.PORT_DO(JOY1_DO_t),
+
 	//LLAPI
 	.JOYSTICK1((joy_swap) ? joy1 : joy0),
+	.JOYSTICK1_RUMBLE(joystick1_rumble),
 	//LLAPI
+
 	.MOUSE(ps2_mouse),
 	.MOUSE_EN(mouse_mode[0])
 );
