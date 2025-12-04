@@ -210,8 +210,8 @@ video_freak video_freak
 (
 	.*,
 	.VGA_DE_IN(vga_de),
-	.ARX((!ar) ? 12'd64 : (ar - 1'd1)),
-	.ARY((!ar) ? 12'd49 : 12'd0),
+	.ARX((!ar) ? (V224_MODE ? 12'd64 : 12'd2048) : (ar - 1'd1)),
+	.ARY((!ar) ? (V224_MODE ? 12'd49 : 12'd1673) : 12'd0),
 	.CROP_SIZE((en216p & vcrop_en) ? 10'd216 : 10'd0),
 	.CROP_OFF(voff),
 	.SCALE(status[41:40])
@@ -682,6 +682,7 @@ main main
 	.FIELD(FIELD),
 	.INTERLACE(INTERLACE),
 	.HIGH_RES(HIGH_RES),
+	.V224_MODE(V224_MODE),
 	.DOTCLK(DOTCLK_out),
 	
 	.HBLANKn(HBlank_out),
@@ -760,12 +761,12 @@ assign AUDIO_L = audio_l;
 assign AUDIO_R = audio_r;
 
 reg RESET_N = 0;
-reg RFSH = 0;
+reg RESET_REFRESH = 0;
 always @(posedge clk_sys) begin
 	reg [1:0] div;
 	
 	div <= div + 1'd1;
-	RFSH <= !div;
+	RESET_REFRESH <= !div;
 	
 	if (div == 2) RESET_N <= ~reset;
 end
@@ -898,7 +899,7 @@ sdram sdram
 	.addr0(sdram_download_en ? sdram_download_addr : ROM_ADDR),
 	.din0(sdram_download_en ? sdram_download_data : ROM_D),
 	.dout0(ROM_Q),
-	.rd0(~sdram_download_en & (RESET_N ? ~ROM_OE_N : RFSH)),
+	.rd0(sdram_download_en ? 1'b0 : !RESET_N ? RESET_REFRESH : ~ROM_OE_N),
 	.wr0(sdram_download_en ? sdram_download_wr : ~ROM_WE_N),
 	.word0(sdram_download_en | ROM_WORD),
 	
@@ -907,7 +908,7 @@ sdram sdram
 	.dout1(sdr_dout1),
 	.rd1(clearing_ram ? 1'b0 : ~WRAM_CE_N & ~WRAM_OE_N & READ_PULSE),
 	.wr1(clearing_ram ? mem_fill_we : ~WRAM_CE_N & ~WRAM_WE_N & SNES_SYSCLKF_CE),
-	.rfs1(clearing_ram ? 1'b0 : SNES_REFRESH),
+	.rfs1(clearing_ram ? 1'b0 : !RESET_N ? RESET_REFRESH : SNES_REFRESH),
 	.word1(0)
 );
 
@@ -1012,7 +1013,7 @@ reg  HSync, HSYNC;
 reg  VSync, VSYNC;
 reg  HBlank;
 reg  VBlank;
-wire HIGH_RES;
+wire HIGH_RES,V224_MODE;
 reg  DOTCLK;
 
 reg interlace;
