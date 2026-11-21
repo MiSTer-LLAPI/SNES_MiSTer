@@ -181,10 +181,10 @@ parameter CONF_STR = {
 
 	"P2,Input Options;",
 	"P2-,LLAPI Driver: 0.5.0;",
-	"P2-,Immediate Repoll: On;",
 	"P2-;",
 	"P2O7,Swap Joysticks,No,Yes;",
 	"P2O[59:58],USER I/O,USB,SNAC SNES,LLAPI SNES,USB;",
+	"d7P2O[8],Immediate Repoll,On,Off;",
 	"P2O[61:60],Autofire P1 (USB/LLAPI),Off,B,A,Y;",
 	"P2O[63:62],Autofire P2 (USB/LLAPI),Off,B,A,Y;",
 	"P2O[53],State Ld/Sv,Start+Up/Down,Up/Down;",
@@ -232,7 +232,7 @@ parameter CONF_STR = {
 
 wire  [1:0] buttons;
 wire [63:0] status;
-wire [15:0] status_menumask = {ss_allow ,en216p, !GUN_MODE, ~turbo_allow, ~gg_available, ~GSU_ACTIVE, ~bk_ena};
+wire [15:0] status_menumask = {!llapi_mode, ss_allow ,en216p, !GUN_MODE, ~turbo_allow, ~gg_available, ~GSU_ACTIVE, ~bk_ena};
 wire        forced_scandoubler;
 reg  [31:0] sd_lba;
 reg         sd_rd = 0;
@@ -1221,6 +1221,7 @@ LLAPI_Enhanced #(.IMMEDIATE_REPOLL(1'b1)) llapi
 	.IO_LATCH_OUT(llapi_latch_o),
 	.IO_DATA_IN(USER_IN[1]),
 	.IO_DATA_OUT(llapi_data_o),
+	.REPOLL_OFF(status[8]),
 	.ENABLE(llapi_mode & ~OSD_STATUS), // Disable LLAPI mode when Core OSD is open
 	.LLAPI_BUTTONS(llapi_buttons),
 	.LLAPI_ANALOG(llapi_analog),
@@ -1244,6 +1245,7 @@ LLAPI_Enhanced #(.IMMEDIATE_REPOLL(1'b1)) llapi2
 	.IO_LATCH_OUT(llapi_latch_o2),
 	.IO_DATA_IN(USER_IN[5]),
 	.IO_DATA_OUT(llapi_data_o2),
+	.REPOLL_OFF(status[8]),
 	.ENABLE(llapi_mode & ~OSD_STATUS), // Disable LLAPI mode when Core OSD is open
 	.LLAPI_BUTTONS(llapi_buttons2),
 	.LLAPI_ANALOG(llapi_analog2),

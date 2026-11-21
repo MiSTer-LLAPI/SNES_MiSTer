@@ -101,6 +101,7 @@ module LLAPI_Enhanced #(
 )
 (
 	input         CLK_50M,
+    input         REPOLL_OFF,
 	input         ENABLE,        // If 0, module will be disabled and pins will be set to Z
 	input         IO_LATCH_IN,   // D+ top level IO pin
 	output reg    IO_LATCH_OUT,
@@ -284,7 +285,11 @@ execution_stage stage = READ_IDLE;
 execution_state state = STATE_IDLE;
 
 wire auxiliary = command_busy || stage == READ_MODES;
-wire repoll_due = IMMEDIATE_REPOLL && repoll_pending && stage == READ_IDLE;
+logic [1:0] repoll_off_sync = 2'b00;
+always_ff @(posedge CLK_50M)
+    repoll_off_sync <= {repoll_off_sync[0], REPOLL_OFF};
+wire immediate_repoll = IMMEDIATE_REPOLL && !repoll_off_sync[1];
+wire repoll_due = immediate_repoll && repoll_pending && stage == READ_IDLE;
 wire transaction_active = state != STATE_WAIT_RELEASE && (stage != READ_IDLE || state != STATE_IDLE || repoll_due);
 wire watchdog_expired = transaction_active &&
     transaction_timer >= ((stage == READ_POLL || raw_active) ? TIME_POLL : RECEIVE_START_TIMEOUT);
@@ -579,7 +584,7 @@ always_ff @(posedge CLK_50M) begin
                 // Publish type, buttons and all axes together after a complete packet.
                 if (stage == READ_STATUS && packet_complete && pending_type != 0 && !protocol_error(pending_type)) begin
                     STATUS_UPDATE <= 1;
-                    repoll_pending <= IMMEDIATE_REPOLL;
+                    repoll_pending <= immediate_repoll;
                     TYPE_CHANGED <= STATUS_VALID && pending_type != lljs_type;
                     command_slot <= 1;
                     lljs_type <= pending_type;

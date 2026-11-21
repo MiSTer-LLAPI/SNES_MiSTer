@@ -1270,6 +1270,7 @@ LLAPI_Enhanced #(.IMMEDIATE_REPOLL(1'b1)) llapi
 	.IO_LATCH_OUT(llapi_latch_o),
 	.IO_DATA_IN(USER_IN[1]),
 	.IO_DATA_OUT(llapi_data_o),
+	.REPOLL_OFF(1'b0),
 	.ENABLE(~OSD_STATUS), // Disable LLAPI mode when Core OSD is open
 	.LLAPI_BUTTONS(llapi_buttons),
 	.LLAPI_ANALOG(llapi_analog),
@@ -1293,6 +1294,7 @@ LLAPI_Enhanced #(.IMMEDIATE_REPOLL(1'b1)) llapi2
 	.IO_LATCH_OUT(llapi_latch_o2),
 	.IO_DATA_IN(USER_IN[5]),
 	.IO_DATA_OUT(llapi_data_o2),
+	.REPOLL_OFF(1'b0),
 	.ENABLE(~OSD_STATUS), // Disable LLAPI mode when Core OSD is open
 	.LLAPI_BUTTONS(llapi_buttons2),
 	.LLAPI_ANALOG(llapi_analog2),
