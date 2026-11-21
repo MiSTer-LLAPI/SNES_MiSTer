@@ -185,8 +185,8 @@ parameter CONF_STR = {
 	"P2O7,Swap Joysticks,No,Yes;",
 	"P2O[59:58],USER I/O,USB,SNAC SNES,LLAPI SNES,USB;",
 	"D7P2O[8],Immediate Repoll,On,Off;",
-	"P2O[61:60],Autofire P1 (USB/LLAPI),Off,B,A,Y;",
-	"P2O[63:62],Autofire P2 (USB/LLAPI),Off,B,A,Y;",
+	"P2O[66:64],Autofire P1 (USB/LLAPI),Off,B,A,Y,X;",
+	"P2O[69:67],Autofire P2 (USB/LLAPI),Off,B,A,Y,X;",
 	"P2O[53],State Ld/Sv,Start+Up/Down,Up/Down;",
 	"P2-;",
 	"P2oB,Miracle Piano,No,Yes;",
@@ -231,7 +231,7 @@ parameter CONF_STR = {
 };
 
 wire  [1:0] buttons;
-wire [63:0] status;
+wire [127:0] status;
 wire [15:0] status_menumask = {!llapi_mode, ss_allow ,en216p, !GUN_MODE, ~turbo_allow, ~gg_available, ~GSU_ACTIVE, ~bk_ena};
 wire        forced_scandoubler;
 reg  [31:0] sd_lba;
@@ -287,7 +287,7 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 
 	.status(status),
 	.status_menumask(status_menumask),
-	.status_in(cart_download ? {status[63:53], ss_slot, status[50:5],1'b0,status[3:0]} : {status[63:53], ss_slot, status[50:32],1'b0,status[30:0]}),
+	.status_in({status[127:64], cart_download ? {status[63:53], ss_slot, status[50:5],1'b0,status[3:0]} : {status[63:53], ss_slot, status[50:32],1'b0,status[30:0]}}),
 	.status_set(cart_download | status0_fall | ss_status),
 
 	.info_req(ss_info_req),
@@ -1275,18 +1275,19 @@ always @(posedge clk_sys) begin
         autofire_frame <= autofire_frame + 1'b1;
 end
 
-function automatic [12:0] autofire_pad(input [12:0] pad, input [1:0] selection, input pulse);
+function automatic [12:0] autofire_pad(input [12:0] pad, input [2:0] selection, input pulse);
     autofire_pad = pad;
     case (selection)
-        2'd1: autofire_pad[5] = pad[5] & pulse;
-        2'd2: autofire_pad[4] = pad[4] & pulse;
-        2'd3: autofire_pad[7] = pad[7] & pulse;
+        3'd1: autofire_pad[5] = pad[5] & pulse;
+        3'd2: autofire_pad[4] = pad[4] & pulse;
+        3'd3: autofire_pad[7] = pad[7] & pulse;
+        3'd4: autofire_pad[6] = pad[6] & pulse;
         default: ;
     endcase
 endfunction
 
-assign joy0 = autofire_pad(pad0, raw_serial || GUN_MODE != 0 ? 2'd0 : status[61:60], ~autofire_frame[1]);
-assign joy1 = autofire_pad(pad1, raw_serial || GUN_MODE != 0 ? 2'd0 : status[63:62], ~autofire_frame[1]);
+assign joy0 = autofire_pad(pad0, raw_serial || GUN_MODE != 0 ? 3'd0 : status[66:64], ~autofire_frame[1]);
+assign joy1 = autofire_pad(pad1, raw_serial || GUN_MODE != 0 ? 3'd0 : status[69:67], ~autofire_frame[1]);
 
 /////////////////////////  STATE SAVE/LOAD  /////////////////////////////
 
