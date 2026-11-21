@@ -183,7 +183,7 @@ parameter CONF_STR = {
 	"P2-,LLAPI Driver: 0.5.0;",
 	"P2-;",
 	"P2O7,Swap Joysticks,No,Yes;",
-	"P2O[59:58],USER I/O,USB,SNAC SNES,LLAPI SNES,USB;",
+	"P2O[59:58],USER I/O,LLAPI SNES,SNAC SNES,USB;",
 	"D7P2O[8],Immediate Repoll,On,Off;",
 	"P2O[66:64],Autofire P1 (USB/LLAPI),Off,B,A,Y,X;",
 	"P2O[69:67],Autofire P2 (USB/LLAPI),Off,B,A,Y,X;",
@@ -1147,7 +1147,7 @@ lightgun lightgun
 // 6  IN    P2D0        TX+
 
 wire raw_serial = status[59:58] == 2'd1;
-wire llapi_mode = status[59:58] == 2'd2;
+wire llapi_mode = status[59:58] == 2'd0;
 reg snac_p2 = 0;
 
 assign USER_OUT[2] = llapi_mode ? OSD_STATUS : 1'b1;
