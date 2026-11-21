@@ -184,7 +184,7 @@ parameter CONF_STR = {
 	"P2-;",
 	"P2O7,Swap Joysticks,No,Yes;",
 	"P2O[59:58],USER I/O,USB,SNAC SNES,LLAPI SNES,USB;",
-	"d7P2O[8],Immediate Repoll,On,Off;",
+	"D7P2O[8],Immediate Repoll,On,Off;",
 	"P2O[61:60],Autofire P1 (USB/LLAPI),Off,B,A,Y;",
 	"P2O[63:62],Autofire P2 (USB/LLAPI),Off,B,A,Y;",
 	"P2O[53],State Ld/Sv,Start+Up/Down,Up/Down;",
