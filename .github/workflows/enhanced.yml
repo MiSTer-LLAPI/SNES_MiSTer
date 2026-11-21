@@ -27,7 +27,6 @@ jobs:
         run: |
           cp enhanced/SNES.sv upstream/SNES.sv
           grep -Fx 'set_global_assignment -name SEED 1' upstream/SNES.qsf
-          sed -i 's/^set_global_assignment -name SEED 1$/set_global_assignment -name SEED 3/' upstream/SNES.qsf
           cp rtl/llapi_enhanced.sv upstream/rtl/llapi_enhanced.sv
           printf '\nset_global_assignment -name SYSTEMVERILOG_FILE rtl/llapi_enhanced.sv\n' >> upstream/files.qip
       - name: Compile
