@@ -303,8 +303,11 @@ parameter CONF_STR = {
 	"SNES;SS3F800000:100000,UART31250,MIDI;",
 	//LLAPI: OSD menu item
 	//LLAPI Always ON
-	"-,>> LLAPI enabled core    <<;",
-	"-,>> Connect USER I/O port <<;",
+	"P4,Controller Guide;",
+	"P4-,LLAPI 2P (USER I/O);",
+	"P4-,LLAPI Driver: 0.5.0;",
+	"P4-,Immediate Repoll: On;",
+	"-,Enhanced Core: 1.0;",
 	"-;",
 	//END LLAPI	
 	"FS1,SFCSMCBINBS ;",
@@ -1252,8 +1255,15 @@ always_comb begin
 end
 
 //Port 1 conf
-LLAPI llapi
+LLAPI_Enhanced #(.IMMEDIATE_REPOLL(1'b1)) llapi
 (
+	.CMD_VALID(1'b0),
+	.CMD_OPCODE(8'd0),
+	.CMD_PAYLOAD(16'd0),
+	.CMD_RAW(1'b0),
+	.CMD_TX_LENGTH(5'd0),
+	.CMD_RX_LENGTH(4'd0),
+	.CMD_TX_DATA(192'd0),
 	.CLK_50M(CLK_50M),
 	.LLAPI_SYNC(vblank),
 	.IO_LATCH_IN(USER_IN[0]),
@@ -1268,8 +1278,15 @@ LLAPI llapi
 );
 
 //Port 2 conf
-LLAPI llapi2
+LLAPI_Enhanced #(.IMMEDIATE_REPOLL(1'b1)) llapi2
 (
+	.CMD_VALID(1'b0),
+	.CMD_OPCODE(8'd0),
+	.CMD_PAYLOAD(16'd0),
+	.CMD_RAW(1'b0),
+	.CMD_TX_LENGTH(5'd0),
+	.CMD_RX_LENGTH(4'd0),
+	.CMD_TX_DATA(192'd0),
 	.CLK_50M(CLK_50M),
 	.LLAPI_SYNC(vblank),
 	.IO_LATCH_IN(USER_IN[4]),
