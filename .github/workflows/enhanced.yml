@@ -41,8 +41,9 @@ jobs:
             quartus_sh --flow compile SNES'
       - name: Date the SNES Enhanced RBF
         if: github.ref_name == 'test-snes-enhanced-inputs'
-        run: mv upstream/output_files/SNES.rbf "upstream/output_files/SNES_Enhanced_1.0_$(date -u +%Y%m%d).rbf"
+        run: cp upstream/output_files/SNES.rbf "SNES_Enhanced_1.0_$(date -u +%Y%m%d).rbf"
       - name: Save build output for validation
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: SNES-candidate
@@ -51,6 +52,7 @@ jobs:
             output_files/*.rpt
             output_files/*.summary
             quartus-version.txt
+            SNES_Enhanced_*.rbf
             upstream/output_files/*.rbf
             upstream/output_files/*.rpt
             upstream/output_files/*.summary
