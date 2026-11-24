@@ -1160,26 +1160,29 @@ function automatic [11:0] map_llapi(input [31:0] b, input [7:0] controller);
         map_llapi={b[5],b[4],b[7:6],b[2],b[3],b[0],b[1],b[27:24]};
 endfunction
 
-for (genvar port=0;port<2;port=port+1) begin : controller_llapi
-    localparam PIN=port*4;
-    LLAPI_Enhanced #(.IMMEDIATE_REPOLL(1),.EXTENDED_POLL_ACK(port==0)) driver (
+genvar player;
+generate
+for (player=0;player<2;player=player+1) begin : controller_llapi
+    localparam PIN=player*4;
+    LLAPI_Enhanced #(.IMMEDIATE_REPOLL(1),.EXTENDED_POLL_ACK(player==0)) driver (
         .CLK_50M(CLK_50M),.ENABLE(llapi_active),.LLAPI_SYNC(VBlank),
         .IO_LATCH_IN(USER_IN[PIN]),.IO_DATA_IN(USER_IN[PIN+1]),
-        .IO_LATCH_OUT(llapi_latch[port]),.IO_DATA_OUT(llapi_data[port]),
-        .LLAPI_BUTTONS(llapi_buttons[port]),.LLAPI_TYPE(llapi_type[port]),
-        .STATUS_VALID(llapi_valid[port]),
+        .IO_LATCH_OUT(llapi_latch[player]),.IO_DATA_OUT(llapi_data[player]),
+        .LLAPI_BUTTONS(llapi_buttons[player]),.LLAPI_TYPE(llapi_type[player]),
+        .STATUS_VALID(llapi_valid[player]),
         .CMD_VALID(1'b0),.CMD_OPCODE(8'b0),.CMD_PAYLOAD(16'b0),
         .CMD_RAW(1'b0),.CMD_TX_LENGTH(5'b0),.CMD_RX_LENGTH(4'b0),.CMD_TX_DATA(192'b0)
     );
     reg valid_meta;
     reg [11:0] pad_meta;
     always @(posedge clk_sys) begin
-        valid_meta<=llapi_valid[port];
-        llapi_seen[port]<=valid_meta;
-        pad_meta<=map_llapi(llapi_buttons[port],llapi_type[port]);
-        llapi_pad[port]<=pad_meta;
+        valid_meta<=llapi_valid[player];
+        llapi_seen[player]<=valid_meta;
+        pad_meta<=map_llapi(llapi_buttons[player],llapi_type[player]);
+        llapi_pad[player]<=pad_meta;
     end
 end
+endgenerate
 
 always_comb begin
     {joy0,joy1,joy2,joy3,joy4}={usb0,usb1,usb2,usb3,usb4};
