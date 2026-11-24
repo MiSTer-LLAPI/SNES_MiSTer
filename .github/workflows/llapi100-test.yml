@@ -14,7 +14,19 @@ jobs:
           docker run --rm -v "$PWD:/src" -w /src --entrypoint bash raetro/quartus:17.0 -ec '
             quartus_sh --version | tee quartus-version.txt
             grep -F "17.0.2 Build 602" quartus-version.txt
-            quartus_sh --flow compile SNES'
+            quartus_sh --flow compile SNES
+            quartus_sta -t .github/report-setup.tcl'
+      - name: Check timing margins
+        run: |
+          awk '
+            /^Slack[[:space:]]*:/ {
+              if ($3 !~ /^[-+]?[0-9]+([.][0-9]+)?$/) { bad = 1; next }
+              count++
+              if ($3 + 0 < 0) { print clock, $0; bad = 1 }
+            }
+            /^Type[[:space:]]*:/ { clock = $0 }
+            END { if (bad || !count) exit 1 }
+          ' output_files/SNES.sta.summary
       - name: Save RBF and reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

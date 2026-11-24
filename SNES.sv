@@ -31,7 +31,8 @@ assign AUDIO_MIX = status[20:19];
 assign LED_USER  = cart_download | ssbin_download | spc_download | (status[23] & bk_pending);
 assign LED_DISK  = 0;
 assign LED_POWER = 0;
-assign BUTTONS   = osd_btn;
+wire llapi_osd;
+assign BUTTONS   = {1'b0, osd_btn | llapi_osd};
 assign VGA_SCALER= 0;
 assign VGA_DISABLE = 0;
 assign HDMI_FREEZE = 0;
@@ -146,6 +147,10 @@ wire reset = RESET | buttons[1] | status[0] | cart_download | spc_download | bk_
 `include "build_id.v"
 parameter CONF_STR = {
 	"SNES;SS3F800000:100000,UART31250,MIDI;",
+	"-,>> LLAPI enabled core    <<;",
+	"-,>> Connect USER I/O port <<;",
+	"-,LLAPI 1.0.0 on by default;",
+	"-;",
 	"FS1,SFCSMCBINBS ;",
 	"FS4,SPC;",
 	"-;",
@@ -1147,10 +1152,16 @@ reg snac_p2 = 0;
 
 // The stock SNAC setting gives the native serial reader exclusive ownership.
 wire llapi_active = !raw_serial && !OSD_STATUS;
-wire [1:0] llapi_latch, llapi_data, llapi_valid;
+reg enable_meta = 0, llapi_enable_50 = 0;
+always @(posedge CLK_50M) begin
+    enable_meta <= llapi_active;
+    llapi_enable_50 <= enable_meta;
+end
+
+wire [1:0] llapi_latch, llapi_data, llapi_valid, osd_chord;
 wire [31:0] llapi_buttons [0:1];
 wire [7:0] llapi_type [0:1];
-reg [1:0] llapi_seen;
+reg [1:0] llapi_seen = 2'b00;
 reg [11:0] llapi_pad [0:1];
 
 function automatic [11:0] map_llapi(input [31:0] b, input [7:0] controller);
@@ -1165,7 +1176,7 @@ generate
 for (player=0;player<2;player=player+1) begin : controller_llapi
     localparam PIN=player*4;
     LLAPI_Enhanced #(.IMMEDIATE_REPOLL(1),.EXTENDED_POLL_ACK(player==0)) driver (
-        .CLK_50M(CLK_50M),.ENABLE(llapi_active),.LLAPI_SYNC(VBlank),
+        .CLK_50M(CLK_50M),.ENABLE(llapi_enable_50),.LLAPI_SYNC(VBlank),
         .IO_LATCH_IN(USER_IN[PIN]),.IO_DATA_IN(USER_IN[PIN+1]),
         .IO_LATCH_OUT(llapi_latch[player]),.IO_DATA_OUT(llapi_data[player]),
         .LLAPI_BUTTONS(llapi_buttons[player]),.LLAPI_TYPE(llapi_type[player]),
@@ -1173,24 +1184,47 @@ for (player=0;player<2;player=player+1) begin : controller_llapi
         .CMD_VALID(1'b0),.CMD_OPCODE(8'b0),.CMD_PAYLOAD(16'b0),
         .CMD_RAW(1'b0),.CMD_TX_LENGTH(5'b0),.CMD_RX_LENGTH(4'b0),.CMD_TX_DATA(192'b0)
     );
-    reg valid_meta;
-    reg [11:0] pad_meta;
-    always @(posedge clk_sys) begin
-        valid_meta<=llapi_valid[player];
-        llapi_seen[player]<=valid_meta;
-        pad_meta<=map_llapi(llapi_buttons[player],llapi_type[player]);
-        llapi_pad[player]<=pad_meta;
+    // Hold the complete report until clk_sys acknowledges it. A button
+    // combination and its controller type must come from the same report.
+    wire [12:0] report = llapi_valid[player]
+        ? {1'b1, map_llapi(llapi_buttons[player], llapi_type[player])} : 13'b0;
+    reg [12:0] held_report = 0;
+    reg request = 0, request_meta = 0, request_sync = 0;
+    reg ack = 0, ack_meta = 0, ack_sync = 0;
+
+    always @(posedge CLK_50M) begin
+        ack_meta <= ack;
+        ack_sync <= ack_meta;
+        if (request == ack_sync && report != held_report) begin
+            held_report <= report;
+            request <= !request;
+        end
     end
+
+    always @(posedge clk_sys) begin
+        request_meta <= request;
+        request_sync <= request_meta;
+        if (request_sync != ack) begin
+            {llapi_seen[player], llapi_pad[player]} <= held_report;
+            ack <= request_sync;
+        end
+    end
+
+    // After SNES mapping these are Down, Start and the first LLAPI button.
+    assign osd_chord[player] = llapi_seen[player] && llapi_pad[player][2]
+        && llapi_pad[player][11] && llapi_pad[player][5];
 end
 endgenerate
+
+assign llapi_osd = llapi_active && (|osd_chord);
 
 always_comb begin
     {joy0,joy1,joy2,joy3,joy4}={usb0,usb1,usb2,usb3,usb4};
     if (llapi_active) begin
         case (llapi_seen)
-            2'b01: {joy0,joy1,joy2,joy3,joy4}={{usb0[12],llapi_pad[0]},usb0,usb1,usb2,usb3};
-            2'b10: {joy0,joy1,joy2,joy3,joy4}={{usb0[12],llapi_pad[1]},usb0,usb1,usb2,usb3};
-            2'b11: {joy0,joy1,joy2,joy3,joy4}={{usb0[12],llapi_pad[0]},{usb1[12],llapi_pad[1]},usb0,usb1,usb2};
+            2'b01: {joy0,joy1,joy2,joy3,joy4}={{1'b0,llapi_pad[0]},usb0,usb1,usb2,usb3};
+            2'b10: {joy0,joy1,joy2,joy3,joy4}={{1'b0,llapi_pad[1]},usb0,usb1,usb2,usb3};
+            2'b11: {joy0,joy1,joy2,joy3,joy4}={{1'b0,llapi_pad[0]},{1'b0,llapi_pad[1]},usb0,usb1,usb2};
             default: ;
         endcase
     end
