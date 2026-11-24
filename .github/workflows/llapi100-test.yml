@@ -1,0 +1,27 @@
+name: SNES LLAPI 1.0.0 test
+on:
+  push:
+    branches: [test-snes-llapi-1-0-0]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Compile SNES with Quartus 17.0.2
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src --entrypoint bash raetro/quartus:17.0 -ec '
+            quartus_sh --version | tee quartus-version.txt
+            grep -F "17.0.2 Build 602" quartus-version.txt
+            quartus_sh --flow compile SNES'
+      - name: Save RBF and reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: SNES-LLAPI-1.0.0-Test
+          path: |
+            output_files/*.rbf
+            output_files/*.rpt
+            output_files/*.summary
+            quartus-version.txt

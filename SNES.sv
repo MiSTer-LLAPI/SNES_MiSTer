@@ -247,7 +247,8 @@ wire [15:0] ioctl_dout;
 wire        ioctl_wr;
 wire  [7:0] ioctl_index;
 
-wire [12:0] joy0,joy1,joy2,joy3,joy4;
+reg [12:0] joy0,joy1,joy2,joy3,joy4;
+wire [12:0] usb0,usb1,usb2,usb3,usb4;
 wire [24:0] ps2_mouse;
 wire [10:0] ps2_key;
 wire [15:0] joystick1_rumble;
@@ -271,11 +272,11 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 
 	.joystick_l_analog_0({joy0_y, joy0_x}),
 	.joystick_l_analog_1({joy1_y, joy1_x}),
-	.joystick_0(joy0),
-	.joystick_1(joy1),
-	.joystick_2(joy2),
-	.joystick_3(joy3),
-	.joystick_4(joy4),
+	.joystick_0(usb0),
+	.joystick_1(usb1),
+	.joystick_2(usb2),
+	.joystick_3(usb3),
+	.joystick_4(usb4),
 	.joystick_0_rumble(status[8] ? 16'h0000 : joystick1_rumble), 
 	.ps2_mouse(ps2_mouse),
 	.ps2_key(ps2_key),
@@ -1144,8 +1145,56 @@ lightgun lightgun
 wire raw_serial = status[8];
 reg snac_p2 = 0;
 
-assign USER_OUT[2] = 1'b1;
-assign USER_OUT[5] = 1'b1;
+// The stock SNAC setting gives the native serial reader exclusive ownership.
+wire llapi_active = !raw_serial && !OSD_STATUS;
+wire [1:0] llapi_latch, llapi_data, llapi_valid;
+wire [31:0] llapi_buttons [0:1];
+wire [7:0] llapi_type [0:1];
+reg [1:0] llapi_seen;
+reg [11:0] llapi_pad [0:1];
+
+function automatic [11:0] map_llapi(input [31:0] b, input [7:0] controller);
+    if (controller==3 || controller==8)
+        map_llapi={b[5],b[6],b[9]|b[7],b[8],b[2],b[3],b[0],b[1],b[27:24]};
+    else
+        map_llapi={b[5],b[4],b[7:6],b[2],b[3],b[0],b[1],b[27:24]};
+endfunction
+
+for (genvar port=0;port<2;port=port+1) begin : controller_llapi
+    localparam PIN=port*4;
+    LLAPI_Enhanced #(.IMMEDIATE_REPOLL(1),.EXTENDED_POLL_ACK(port==0)) driver (
+        .CLK_50M(CLK_50M),.ENABLE(llapi_active),.LLAPI_SYNC(VBlank),
+        .IO_LATCH_IN(USER_IN[PIN]),.IO_DATA_IN(USER_IN[PIN+1]),
+        .IO_LATCH_OUT(llapi_latch[port]),.IO_DATA_OUT(llapi_data[port]),
+        .LLAPI_BUTTONS(llapi_buttons[port]),.LLAPI_TYPE(llapi_type[port]),
+        .STATUS_VALID(llapi_valid[port]),
+        .CMD_VALID(1'b0),.CMD_OPCODE(8'b0),.CMD_PAYLOAD(16'b0),
+        .CMD_RAW(1'b0),.CMD_TX_LENGTH(5'b0),.CMD_RX_LENGTH(4'b0),.CMD_TX_DATA(192'b0)
+    );
+    reg valid_meta;
+    reg [11:0] pad_meta;
+    always @(posedge clk_sys) begin
+        valid_meta<=llapi_valid[port];
+        llapi_seen[port]<=valid_meta;
+        pad_meta<=map_llapi(llapi_buttons[port],llapi_type[port]);
+        llapi_pad[port]<=pad_meta;
+    end
+end
+
+always_comb begin
+    {joy0,joy1,joy2,joy3,joy4}={usb0,usb1,usb2,usb3,usb4};
+    if (llapi_active) begin
+        case (llapi_seen)
+            2'b01: {joy0,joy1,joy2,joy3,joy4}={{usb0[12],llapi_pad[0]},usb0,usb1,usb2,usb3};
+            2'b10: {joy0,joy1,joy2,joy3,joy4}={{usb0[12],llapi_pad[1]},usb0,usb1,usb2,usb3};
+            2'b11: {joy0,joy1,joy2,joy3,joy4}={{usb0[12],llapi_pad[0]},{usb1[12],llapi_pad[1]},usb0,usb1,usb2};
+            default: ;
+        endcase
+    end
+end
+
+assign USER_OUT[2] = !llapi_active;
+assign USER_OUT[5] = llapi_active ? llapi_data[1] : 1'b1;
 assign USER_OUT[6] = 1'b1;
 
 // JOYX_DO[0] is P4, JOYX_DO[1] is P5
@@ -1179,10 +1228,10 @@ always_comb begin
 			JOY2_P6_DI = joy_swap ? USER_IN[4] : (LG_P6_out | !GUN_MODE);
 		end
 	end else begin
-		USER_OUT[0] = 1'b1;
-		USER_OUT[1] = 1'b1;
+		USER_OUT[0] = llapi_active ? llapi_latch[0] : 1'b1;
+		USER_OUT[1] = llapi_active ? llapi_data[0] : 1'b1;
 		USER_OUT[3] = 1'b1;
-		USER_OUT[4] = 1'b1;
+		USER_OUT[4] = llapi_active ? llapi_latch[1] : 1'b1;
 		JOY1_DI = JOY1_DO;
 		JOY2_DI = JOY2_DO;
 		JOY2_P6_DI = (LG_P6_out | !GUN_MODE);
